@@ -25,8 +25,8 @@
         </div>
 
         <div class="upload-box">
-          <label>📸 Fotos (mehrere möglich)
-            <input id="azubiFotos" type="file" accept="image/*,.heic,.heif" multiple>
+          <label>📸 Fotos (beliebige Formate)
+            <input id="azubiFotos" type="file" accept="image/*" multiple>
           </label>
           <div id="fotoPreview" class="foto-preview"></div>
         </div>
@@ -36,7 +36,6 @@
       </section>
     `;
 
-    // === Dropdown-Logik für Lehrjahr ===
     const jahrSelect = document.getElementById("azubiJahrSelect");
     const jahrCustom = document.getElementById("azubiJahrCustom");
     jahrSelect.addEventListener("change", () => {
@@ -49,21 +48,20 @@
     const exportBtn = document.getElementById("exportAzubiPDF");
     let uploadedImages = [];
 
-    fotoInput.addEventListener("change", (e) => {
+    fotoInput.addEventListener("change", async (e) => {
       uploadedImages = [];
       fotoPreview.innerHTML = "";
-      Array.from(e.target.files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          uploadedImages.push(ev.target.result);
-          const img = document.createElement("img");
-          img.src = ev.target.result;
-          img.style.maxWidth = "100px";
-          img.style.margin = "3px";
-          fotoPreview.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-      });
+      const files = Array.from(e.target.files);
+
+      for (const file of files) {
+        const converted = await convertToPng(file);
+        uploadedImages.push(converted);
+        const img = document.createElement("img");
+        img.src = converted;
+        img.style.maxWidth = "100px";
+        img.style.margin = "3px";
+        fotoPreview.appendChild(img);
+      }
     });
 
     exportBtn.addEventListener("click", async () => {
@@ -93,14 +91,14 @@
       const helv = await pdf.embedFont(StandardFonts.Helvetica);
       const pages = pdf.getPages();
 
-      // === Seite 1 – mit Lehrjahr-Integration ===
+      // === Seite 1 ===
       const p1 = pages[0];
       p1.drawText(name,        { x: 70,  y: 755, size: 11, font: helv, color: rgb(0, 0, 0) });
       p1.drawText(verzeichnis, { x: 388, y: 755, size: 11, font: helv, color: rgb(0, 0, 0) });
       p1.drawText(jahrValue,   { x: 115, y: 725, size: 11, font: helv, color: rgb(0, 0, 0) });
       p1.drawText(betrieb,     { x: 310, y: 725, size: 11, font: helv, color: rgb(0, 0, 0) });
 
-      // === Seite 2 – Bilder unverändert ===
+      // === Seite 2 – Bilder (automatische Konvertierung) ===
       const p2 = pages[1];
       const { width, height } = p2.getSize();
       const boxX = 55;
@@ -117,8 +115,7 @@
         const data = uploadedImages[i];
         try {
           const buf = await fetch(data).then((r) => r.arrayBuffer());
-          const isPng = data.includes("png");
-          const img = isPng ? await pdf.embedPng(buf) : await pdf.embedJpg(buf);
+          const img = await pdf.embedPng(buf); // alle konvertiert zu PNG
           const scale = Math.min(cellW / img.width, cellH / img.height);
           const w = img.width * scale;
           const h = img.height * scale;
@@ -135,8 +132,28 @@
       msg("✅ PDF erfolgreich erstellt!");
     });
 
+    // Hilfsfunktionen
     function val(id) { return document.getElementById(id)?.value.trim(); }
     function msg(t, err = false) { status.style.color = err ? "#f87171" : "#fff"; status.textContent = t; }
+
+    async function convertToPng(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
   }
 
   async function ensurePdfLib() {
