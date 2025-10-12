@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Straßenwärter-Helfer</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body.auth-locked { overflow: hidden; }
+    #loginOverlay {
+      position: fixed; inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(15,23,42,.9), rgba(2,6,23,.96));
+      -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+      display: none; place-items: center; z-index: 99999;
+    }
+    #loginOverlay.active { display: grid; }
+    .login-card {
+      width: min(420px, 92vw); border-radius: 18px; padding: 1.25rem 1.35rem;
+      background: linear-gradient(135deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+      border: 1px solid rgba(255,255,255,.18); box-shadow: 0 20px 60px rgba(0,0,0,.5); color: #fff;
+    }
+    .login-card h2 { margin: 0 0 .25rem; font-size: 1.35rem; }
+    .login-card p  { margin: 0 0 .75rem; color: #cbd5e1; }
+    .login-field { margin: .6rem 0; }
+    .login-field label { display:block; font-weight:600; margin-bottom:.35rem; color:#cbd5e1; }
+    .login-field input {
+      width: 100%; padding:.65rem .8rem; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.22);
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.08));
+      color: #fff; outline: none;
+    }
+    .login-actions { display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin-top:.75rem; }
+    .btn { 
+      position: relative; display:inline-flex; align-items:center; justify-content:center;
+      gap:.5rem; padding:.65rem 1rem; border-radius:12px; border:1px solid rgba(255,255,255,.14);
+      color:#fff; font-weight:700; background: linear-gradient(120deg, rgba(249,115,22,.95), rgba(59,130,246,.95));
+      cursor:pointer; user-select:none;
+    }
+    .btn:hover { filter: saturate(1.08); transform: translateY(-1px); }
+    .btn.secondary { background: linear-gradient(120deg, rgba(59,130,246,.95), rgba(34,211,238,.95)); }
+    .login-small { display:flex; align-items:center; gap:.45rem; color:#cbd5e1; font-size:.9rem; }
+    .login-error { margin-top:.65rem; color:#fecaca; min-height:1.2em; }
+
+    #app { display:none; }
+    #app.ready { display:block; }
+
+    #splash { display:none; }
+    #splash.active { display:flex; }
+  </style>
+</head>
+<body class="auth-locked">
+  <div id="loginOverlay" class="active" aria-modal="true" role="dialog" aria-label="Anmeldung erforderlich">
+    <div class="login-card" role="document">
+      <h2>🔒 Anmelden</h2>
+      <p>Zugriff nur für autorisierte Benutzer.</p>
+      <div class="login-field">
+        <label for="loginUser">Benutzername</label>
+        <input id="loginUser" autocomplete="username" inputmode="email" placeholder="Benutzername">
+      </div>
+      <div class="login-field">
+        <label for="loginPass">Passwort</label>
+        <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort">
+      </div>
+      <div class="login-actions">
+        <label class="login-small"><input type="checkbox" id="rememberMe"> auf diesem Gerät merken</label>
+        <div><button id="loginBtn" class="btn">Anmelden</button></div>
+      </div>
+      <div id="loginError" class="login-error" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div id="app" aria-hidden="true">
+    <div id="splash">
+      <div class="splash-inner">
+        <img src="assets/logo.png" alt="Logo Straßenwärter Tool" class="splash-logo">
+        <h1>Straßenwärter Tool</h1>
+        <p>das digitale Tool für Straßenwärter</p>
+      </div>
+    </div>
+
+    <header>
+      <div class="logo-area">
+        <img src="assets/logo.png" alt="Straßenwärter Tool">
+        <div class="titlebox">
+          <h1>Straßenwärter Tool</h1>
+          <p>das digitale Tool für Straßenwärter</p>
+        </div>
+      </div>
+    </header>
+
+    <nav>
+      <button data-tab="dashboard" class="active">🏠 Dashboard</button>
+      <button data-tab="calc">📏 Rechnungen</button>
+      <button data-tab="worktime">🕓 Arbeitszeiten</button>
+      <button data-tab="rsa">🚧 RSA</button>
+      <button data-tab="signs">🚦 Schilderwald</button>
+      <button data-tab="winter">❄️ Winterdienst</button>
+      <button data-tab="report">🧾 Tagesbericht</button>
+      <button data-tab="ausbildungsnachweis">📚 Ausbildungsnachweis</button>
+      <button data-tab="settings">⚙️ Einstellungen</button>
+    </nav>
+
+    <main id="mainContent"></main>
+
+    <footer>
+      <small>© 2025 Straßenwärter-Helfer</small>
+    </footer>
+  </div>
+
+  <script>
+    window.__AUTH_CONF__ = {
+      saltHex: "3f1c8e6a4b9d2f11aabbccdd33445566",
+      iterations: 200000,
+      derivedB64: "W7QCePmG2MCDRpOgJSjnqGTWa/yyMlKw7Snuh2AfzHo="
+    };
+  </script>
+  <script src="scripts/auth.js"></script>
+  <script src="scripts/main.js"></script>
+
+  <!-- Deine bestehenden Module -->
+  <script src="scripts/dashboard.js"></script>
+  <script src="scripts/worktime.js"></script>
+  <script src="scripts/calc.js"></script>
+  <script src="scripts/rsa.js"></script>
+  <script src="scripts/signs.js"></script>
+  <script src="scripts/winter.js"></script>
+  <script src="scripts/report.js"></script>
+  <script src="scripts/ausbildungsnachweis.js"></script>
+  <script src="scripts/settings.js"></script>
+</body>
+</html>
