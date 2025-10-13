@@ -1,236 +1,189 @@
 /* ================================================================
-   Straßenwärter Tool – Dashboard.js (v7 UltraGlass+)
-   - Dynamisches Layout mit 2-Spalten-Grid
-   - KPI-Animationen, Echtzeituhr & Wetterbox
-   - LocalStorage-Notizen & Winterdienststatus
-   - Letzte Berichte mit Vorschau & Löschfunktion
+   Straßenwärter Tool – Dashboard v10 "Aurora + Dynamic"
+   - KPI-Karten mit Icons & sanfter Pulse-Animation
+   - Wetterkarte kompakt, mit Icon-Wechsel & Glow
+   - Glaskarten mit Hover-Lichtkante
+   - Reaktive Schnellzugriffe
    ================================================================ */
 
 function loadDashboard() {
   const main = document.getElementById("mainContent");
   main.innerHTML = `
-  <section class="dashboard fade-in">
-    <div class="dashboard-left">
-      <div class="card glass-strong">
-        <div class="section-title"><h2>🚧 Straßenwärter-Dashboard</h2></div>
-        <div class="kpis animated">
-          <div class="kpi">
-            <div class="v" id="kpiReports">–</div>
-            <div class="l">Berichte diese Woche</div>
+  <section class="dash-v10 fade-in">
+    <div class="v10-grid">
+
+      <!-- Linke Spalte -->
+      <div class="v10-col">
+        <!-- KPI-Row -->
+        <div class="v10-row">
+          <div class="card kpi-card">
+            <div class="kpi-icon">📄</div>
+            <div>
+              <div class="kpi-val" id="kpiReports">–</div>
+              <div class="kpi-label">Berichte diese Woche</div>
+            </div>
           </div>
-          <div class="kpi">
-            <div class="v" id="kpiTemp">– °C</div>
-            <div class="l">Ø Temperatur</div>
+
+          <div class="card kpi-card">
+            <div class="kpi-icon">🌡️</div>
+            <div>
+              <div class="kpi-val" id="kpiTemp">– °C</div>
+              <div class="kpi-label">Ø Temperatur</div>
+            </div>
           </div>
-          <div class="kpi">
-            <div class="v" id="kpiLocation">–</div>
-            <div class="l">Letzter Einsatzort</div>
+
+          <div class="card kpi-card">
+            <div class="kpi-icon">📍</div>
+            <div>
+              <div class="kpi-val" id="kpiLocation">–</div>
+              <div class="kpi-label">Letzter Einsatzort</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Uhr -->
+        <div class="card glass">
+          <h3 class="card-title">🕒 Datum & Uhrzeit</h3>
+          <p id="liveTime" class="clock glow-text"></p>
+        </div>
+
+        <!-- Wetter -->
+        <div class="card weather-card">
+          <h3 class="card-title">🌦️ Wetter & Einsatzinfos</h3>
+          <div class="weather-wrap">
+            <div class="weather-details">
+              <p><b>Ort:</b> <span id="wxLocation">–</span></p>
+              <p><b>Temperatur:</b> <span id="wxTemp">– °C</span></p>
+              <p><b>Wind:</b> <span id="wxWind">– km/h</span></p>
+              <p><b>Bedingungen:</b> <span id="wxCond">–</span></p>
+            </div>
+            <div class="weather-visual">
+              <div class="wx-icon" id="wxIcon">🌤️</div>
+              <div class="wx-glow"></div>
+            </div>
+          </div>
+
+          <div id="winterStatusBox" class="winter-box">
+            <label><b>Winterdienststatus:</b></label>
+            <select id="winterStatus">
+              <option value="none">🟢 Kein Einsatz</option>
+              <option value="ready">🟠 Bereitschaft</option>
+              <option value="active">🔴 Aktiver Einsatz</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Mini-Rechner -->
+        <div class="card glass">
+          <h3 class="card-title">🧮 Mini-Rechner</h3>
+          <div class="mini-grid">
+            <input type="number" id="miniA" placeholder="Zahl A">
+            <select id="miniOp">
+              <option value="+">+</option>
+              <option value="-">−</option>
+              <option value="*">×</option>
+              <option value="/">÷</option>
+            </select>
+            <input type="number" id="miniB" placeholder="Zahl B">
+            <button id="miniCalc" class="btn accent">=</button>
+          </div>
+          <p id="miniResult" class="mini-result glow-text"></p>
+        </div>
+
+        <!-- Notizen -->
+        <div class="card glass">
+          <h3 class="card-title">🗒️ Notizen</h3>
+          <textarea id="dashNotes" rows="4" placeholder="Notizen oder Aufgaben hier eingeben..."></textarea>
+        </div>
+
+        <!-- Schnellzugriff -->
+        <div class="card accent-card">
+          <h3 class="card-title">⚡ Schnellzugriff</h3>
+          <div class="quick-links">
+            <button class="btn link" data-tab="calc">📏 Rechnungen</button>
+            <button class="btn link" data-tab="rsa">🚧 Regelpläne</button>
+            <button class="btn link" data-tab="signs">🚦 Schilderwald</button>
+            <button class="btn link" data-tab="report">🧾 Tagesbericht</button>
+            <button class="btn link" data-tab="winter">❄️ Winterdienst</button>
           </div>
         </div>
       </div>
 
-      <div class="card glass-strong">
-        <div class="section-title"><h2>🕒 Datum & Uhrzeit</h2></div>
-        <p id="liveTime" class="text-glow clock-display"></p>
-      </div>
-
-      <div class="card glass-strong">
-        <div class="section-title"><h2>🌦️ Wetter & Einsatzinfos</h2></div>
-        <div id="weatherBox" class="weather-box">
-          <p><b>Ort:</b> <span id="wxLocation">–</span></p>
-          <p><b>Temperatur:</b> <span id="wxTemp">– °C</span></p>
-          <p><b>Wind:</b> <span id="wxWind">– km/h</span></p>
-          <p><b>Bedingungen:</b> <span id="wxCond">–</span></p>
-        </div>
-        <div id="winterStatusBox" class="winter-box">
-          <label><b>Winterdienststatus:</b></label>
-          <select id="winterStatus">
-            <option value="none">🟢 Kein Einsatz</option>
-            <option value="ready">🟠 Bereitschaft</option>
-            <option value="active">🔴 Aktiver Einsatz</option>
-          </select>
+      <!-- Rechte Spalte -->
+      <div class="v10-col">
+        <div class="card glass">
+          <h3 class="card-title">📚 Letzte Berichte</h3>
+          <div id="reportHistory" class="report-list"></div>
         </div>
       </div>
 
-      <div class="card glass-strong">
-        <div class="section-title"><h2>🧮 Mini-Rechner</h2></div>
-        <div class="mini-grid">
-          <input type="number" id="miniA" placeholder="Zahl A">
-          <input type="number" id="miniB" placeholder="Zahl B">
-          <select id="miniOp">
-            <option value="+">+</option>
-            <option value="-">−</option>
-            <option value="*">×</option>
-            <option value="/">÷</option>
-          </select>
-          <button id="miniCalc" class="btn accent">=</button>
-        </div>
-        <p id="miniResult" class="mini-result"></p>
-      </div>
-
-      <div class="card glass-strong">
-        <div class="section-title"><h2>🗒️ Notizen</h2></div>
-        <textarea id="dashNotes" rows="4" placeholder="Notizen oder Aufgaben hier eingeben..."></textarea>
-      </div>
-
-      <div class="card glass-strong">
-        <div class="section-title"><h2>⚡ Schnellzugriff</h2></div>
-        <div class="quick-links">
-          <button class="btn accent" data-tab="calc">📏 Rechnungen</button>
-          <button class="btn accent" data-tab="rsa">🚧 Regelpläne</button>
-          <button class="btn accent" data-tab="signs">🚦 Schilderwald</button>
-          <button class="btn accent" data-tab="report">🧾 Tagesbericht</button>
-          <button class="btn accent" data-tab="winter">❄️ Winterdienst</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="dashboard-right">
-      <div class="card glass-strong" id="reportHistoryCard">
-        <div class="section-title"><h2>📚 Letzte Berichte</h2></div>
-        <div id="reportHistory" class="report-list"></div>
-      </div>
     </div>
   </section>
   `;
 
-  // === Uhrzeit aktualisieren ===
+  /* ========== Logik ========== */
+  // Uhr
   const liveTime = document.getElementById("liveTime");
-  function updateClock() {
-    const now = new Date();
-    const days = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-    const str = `${days[now.getDay()]} ${now.toLocaleDateString("de-DE")} – ${now.toLocaleTimeString("de-DE")}`;
-    liveTime.textContent = str;
-  }
-  updateClock();
-  setInterval(updateClock, 1000);
+  const tick = () => (liveTime.textContent =
+    new Date().toLocaleString("de-DE", {
+      weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit"
+    }));
+  tick(); setInterval(tick, 1000);
 
-  // === Mini-Rechner ===
+  // Mini-Rechner
   document.getElementById("miniCalc").onclick = () => {
     const a = parseFloat(document.getElementById("miniA").value);
     const b = parseFloat(document.getElementById("miniB").value);
     const op = document.getElementById("miniOp").value;
-    let res = "";
-    if (!isNaN(a) && !isNaN(b)) {
-      switch (op) {
-        case "+": res = a + b; break;
-        case "-": res = a - b; break;
-        case "*": res = a * b; break;
-        case "/": res = b !== 0 ? (a / b).toFixed(2) : "∞"; break;
-      }
-      document.getElementById("miniResult").textContent = `Ergebnis: ${res}`;
-    } else {
-      document.getElementById("miniResult").textContent = "Bitte beide Zahlen eingeben.";
-    }
+    const out = document.getElementById("miniResult");
+    if (isNaN(a) || isNaN(b)) return (out.textContent = "Bitte beide Zahlen eingeben.");
+    const r = op === "+" ? a + b : op === "-" ? a - b : op === "*" ? a * b : (b !== 0 ? (a / b).toFixed(2) : "∞");
+    out.textContent = `Ergebnis: ${r}`;
   };
 
-  // === Notizen speichern ===
+  // Notizen
   const notes = document.getElementById("dashNotes");
   notes.value = localStorage.getItem("dash_notes") || "";
   notes.addEventListener("input", () => localStorage.setItem("dash_notes", notes.value));
 
-  // === Winterdienststatus ===
-  const winterSel = document.getElementById("winterStatus");
-  winterSel.value = localStorage.getItem("winter_status") || "none";
-  const winterBox = document.getElementById("winterStatusBox");
-  function updateWinterColor() {
-    const val = winterSel.value;
-    let color = "#10b981";
-    if (val === "ready") color = "#f59e0b";
-    if (val === "active") color = "#ef4444";
-    winterBox.style.boxShadow = `0 0 12px ${color}`;
-    winterBox.style.border = `2px solid ${color}`;
-    localStorage.setItem("winter_status", val);
-  }
-  winterSel.addEventListener("change", updateWinterColor);
-  updateWinterColor();
+  // Wetter + KPIs
+  const wx = JSON.parse(localStorage.getItem("wx_data") || "{}");
+  const cond = wx.cond ?? "Wolkig";
+  const iconMap = { Sonne:"☀️", Wolkig:"🌤️", Regen:"🌧️", Schnee:"❄️", Nebel:"🌫️", Sturm:"💨" };
+  document.getElementById("wxIcon").textContent = iconMap[cond] || "🌦️";
+  document.getElementById("wxTemp").textContent = wx.temp ?? "5 °C";
+  document.getElementById("wxWind").textContent = wx.wind ?? "12 km/h";
+  document.getElementById("wxCond").textContent = cond;
+  document.getElementById("wxLocation").textContent = wx.loc ?? "Hannover";
 
-  // === Wetterdaten (Mock) ===
-  const wxData = JSON.parse(localStorage.getItem("wx_data") || "{}");
-  document.getElementById("wxTemp").textContent = wxData.temp ?? "5 °C";
-  document.getElementById("wxWind").textContent = wxData.wind ?? "12 km/h";
-  document.getElementById("wxCond").textContent = wxData.cond ?? "Wolkig";
-  document.getElementById("wxLocation").textContent = wxData.loc ?? "Hannover";
-
-  // === KPIs ===
   document.getElementById("kpiReports").textContent = localStorage.getItem("reports_week") || "7";
-  document.getElementById("kpiTemp").textContent = wxData.temp ?? "5 °C";
-  document.getElementById("kpiLocation").textContent = wxData.loc ?? "Hannover";
+  document.getElementById("kpiTemp").textContent = wx.temp ?? "5 °C";
+  document.getElementById("kpiLocation").textContent = wx.loc ?? "Hannover";
 
-  // === Letzte Berichte ===
-  const reportHistoryBox = document.getElementById("reportHistory");
+  // Winterdienststatus
+  const winterSel = document.getElementById("winterStatus");
+  const winterBox = document.getElementById("winterStatusBox");
+  winterSel.value = localStorage.getItem("winter_status") || "none";
+  const setWinter = () => {
+    const v = winterSel.value;
+    const c = v === "active" ? "#ef4444" : v === "ready" ? "#f59e0b" : "#10b981";
+    winterBox.style.boxShadow = `0 0 16px ${c}`;
+    winterBox.style.border = `2px solid ${c}`;
+    localStorage.setItem("winter_status", v);
+  };
+  winterSel.addEventListener("change", setWinter); setWinter();
+
+  // Berichte
+  const list = document.getElementById("reportHistory");
   const reports = JSON.parse(localStorage.getItem("reports_history") || "[]");
-
-  function formatDateShort(str) {
-    try {
-      const d = new Date(str);
-      if (!isNaN(d)) {
-        return new Intl.DateTimeFormat("de-DE", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "2-digit"
-        }).format(d);
-      }
-    } catch {}
-    return str || "-";
-  }
-
-  function openReportHTML(full) {
-    const dstr = new Intl.DateTimeFormat("de-DE", {
-      weekday: "long",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric"
-    }).format(new Date(full.date || Date.now()));
-    const html = `
-      <html lang="de"><head><meta charset="utf-8">
-      <title>Tagesbericht_${dstr}</title>
-      <style>
-        body { font-family: Arial; margin: 30px; }
-        h1 { color: #f97316; }
-      </style>
-      </head><body>
-      <h1>Straßenwärter Tool – Bericht</h1>
-      <p><b>Datum:</b> ${dstr}</p>
-      <p><b>Ort:</b> ${full.street || "-"}</p>
-      <p><b>Leitung:</b> ${full.leitung || "-"}</p>
-      <hr><p>Dieser Bericht wurde automatisch aus dem Archiv geöffnet.</p>
-      </body></html>`;
-    const w = window.open("about:blank", "_blank");
-    w.document.write(html);
-    w.document.close();
-  }
-
-  function renderReports() {
-    if (!reports.length) {
-      reportHistoryBox.innerHTML = `<p class="muted center">Noch keine Berichte vorhanden.</p>`;
-      return;
-    }
-    const last7 = reports.slice(-7).reverse();
-    reportHistoryBox.innerHTML = last7.map((r, i) => `
-      <div class="report-entry">
-        <div class="report-header">🧾 ${formatDateShort(r.datum)}</div>
-        <p><b>Kolonne:</b> ${r.kolonne || "-"}</p>
-        <p><b>Ort:</b> ${r.ort || "-"}</p>
-        <div class="report-actions">
-          <button class="btn accent" data-open="${i}">Öffnen</button>
-          <button class="btn danger" data-del="${i}">🗑️</button>
-        </div>
+  list.innerHTML = reports.length ? reports.slice(-7).reverse().map(r => `
+    <div class="report-item">
+      <div class="report-head">🧾 ${r.datum || "Unbekannt"}</div>
+      <div class="report-meta">
+        <span><b>Kolonne:</b> ${r.kolonne || "-"}</span>
+        <span><b>Ort:</b> ${r.ort || "-"}</span>
       </div>
-    `).join("");
-
-    [...reportHistoryBox.querySelectorAll("[data-open]")].forEach(btn => {
-      btn.onclick = () => openReportHTML(last7[btn.dataset.open]);
-    });
-
-    [...reportHistoryBox.querySelectorAll("[data-del]")].forEach(btn => {
-      btn.onclick = () => {
-        const idx = parseInt(btn.dataset.del);
-        reports.splice(reports.length - 1 - idx, 1);
-        localStorage.setItem("reports_history", JSON.stringify(reports));
-        renderReports();
-      };
-    });
-  }
-  renderReports();
+    </div>
+  `).join("") : `<p class="muted center">Noch keine Berichte vorhanden.</p>`;
 }
