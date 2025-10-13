@@ -20,6 +20,9 @@ document.addEventListener("DOMContentLoaded", () => {
       case "dashboard":
         typeof loadDashboard === "function" && loadDashboard();
         break;
+      case "kmcalc": 
+        typeof loadKmcalc === "function" && loadKmcalc(); 
+        break;
       case "calc":
         typeof loadCalc === "function" && loadCalc();
         break;
