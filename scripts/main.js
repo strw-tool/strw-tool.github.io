@@ -41,6 +41,9 @@ document.addEventListener("DOMContentLoaded", () => {
       case "report":
         typeof loadReport === "function" && loadReport();
         break;
+      case "projectdoc": 
+        typeof loadProjectDoc === "function" && loadProjectDoc(); 
+        break;
       case "settings":
         typeof loadSettings === "function" && loadSettings();
         break;
