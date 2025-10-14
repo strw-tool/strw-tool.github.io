@@ -1,1 +1,390 @@
+/* ==========================================================================
+   Straßenwärter Tool – projectdoc.css v3.2
+   Verbesserungen:
+   - Klare Abstände, modernisiertes Layout
+   - Badge ✕-Button integriert
+   - Kachelraster für Fotos verbessert
+   - Einheitliche Farben, Schatten, Übergänge
+   ========================================================================== */
 
+:root {
+  --accent: #f97316;
+  --accent-light: #fdba74;
+  --accent-dark: #ea580c;
+  --bg: #f9fafb;
+  --fg: #111827;
+  --border: #e5e7eb;
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.25);
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  margin: 0;
+  padding: 0;
+}
+
+.project-v31 {
+  padding: 1rem 2rem;
+  max-width: 1200px;
+  margin: auto;
+}
+
+h2, h3, h4 {
+  color: var(--accent);
+  margin-top: 0.5rem;
+}
+
+h3 {
+  margin-bottom: 0.5rem;
+}
+
+/* ========== CARDS & GLASS ========== */
+.card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 1rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  margin-bottom: 1rem;
+  backdrop-filter: blur(10px);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.mt { margin-top: 1rem; }
+.mt-sm { margin-top: 0.5rem; }
+.mb { margin-bottom: 1rem; }
+
+.grow { flex-grow: 1; }
+
+/* ========== BUTTONS ========== */
+button, .btn {
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button:hover, .btn:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: #000;
+}
+
+.btn.accent {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+.btn.accent:hover {
+  background: var(--accent-dark);
+}
+
+.btn.danger {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+.btn.danger:hover {
+  background: #fca5a5;
+  color: white;
+}
+
+/* ========== FORMS & INPUTS ========== */
+input, select, textarea {
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  width: 100%;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(249,115,22,0.2);
+  outline: none;
+}
+
+label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.gap {
+  gap: 0.5rem;
+}
+
+.wrap {
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+table.tbl th,
+table.tbl td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.5rem;
+}
+
+table.tbl th {
+  background: #f3f4f6;
+  text-align: left;
+}
+
+table.tbl tfoot td {
+  background: #f9fafb;
+}
+
+.right { text-align: right; }
+.center { text-align: center; }
+
+.muted {
+  color: #6b7280;
+}
+.sm {
+  font-size: 0.85rem;
+}
+
+/* ========== BADGES (Leitung) ========== */
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--accent-light);
+  border: 1px solid var(--accent);
+  color: #111;
+  border-radius: 20px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.badge-x {
+  background: transparent;
+  border: none;
+  color: #333;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 0;
+  line-height: 1;
+}
+
+.badge-x:hover {
+  color: #b91c1c;
+}
+
+/* ========== GALLERY & FOTOS ========== */
+.gallery.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.gallery.tiles img {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.15s ease;
+}
+
+.gallery.tiles img:hover {
+  transform: scale(1.03);
+}
+
+.ba-item {
+  margin-top: 1rem;
+}
+
+.ba-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.ba-preview img {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+/* ========== CHECKLISTE / SCHRITTE ========== */
+.list.checklist .item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0;
+}
+
+.bad-red {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.8rem;
+}
+
+.bad-green {
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.8rem;
+}
+
+/* ========== NAVIGATION (Tabs, Quickbar) ========== */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 0.8rem;
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  transition: 0.2s;
+  font-weight: 500;
+}
+
+.tab:hover {
+  color: var(--accent);
+}
+
+.tab.active {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
+.quickbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.8rem 0;
+}
+
+.qbtn {
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.6rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.qbtn:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+
+/* ========== PANES ========== */
+.pane { display: none; }
+.pane.show { display: block; }
+
+/* ========== CHIP LISTS ========== */
+.chip {
+  background: #f3f4f6;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  padding: 0.2rem 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  margin: 0.2rem;
+  font-size: 0.85rem;
+}
+.chip-x {
+  background: transparent;
+  border: none;
+  color: #666;
+  font-weight: bold;
+  margin-left: 4px;
+  cursor: pointer;
+}
+.chip-x:hover {
+  color: #b91c1c;
+}
+
+/* ========== MINI TIME CALCULATOR ========== */
+.mini-timecalc {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+.mini-timecalc .timecalc-grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 0.4rem;
+}
+.mini-timecalc .mini-result {
+  margin: 0;
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 700px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .quickbar, .tabs {
+    flex-direction: column;
+  }
+  .tab, .qbtn {
+    width: 100%;
+    text-align: left;
+  }
+}
