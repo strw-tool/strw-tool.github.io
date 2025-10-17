@@ -1,790 +1,911 @@
-/* ==========================================================================
-   Straßenwärter Tool – Tagesbericht (report.js) v2.1
-   - SM-Auswahl: Berenbostel, Sarstedt, Stadthagen
-   - Tätigkeit: Kolonne | Streckenkontrolle | Hof
-   - Bezirke (nur Berenbostel): Wedemark, Neustadt, Hannover
-   - Leitung
-   - Fahrzeuge:
-       * Berenbostel: vordefinierte Kennzeichenliste + "Beliebiges Kennzeichen"
-       * Auswahl-Checkbox pro Fahrzeug
-       * Rolle: Fahrer/Beifahrer (Beifahrer standardmäßig)
-       * Fahrzeugwechsel (bearbeiten), Entfernen
-       * Schäden: per Aktiv-Häkchen einblendbar, mit Text + Bild (+ löschen)
-   - Straßen (nur Berenbostel): B3,B6,B65,B442 | L190,L191,L192,L193,L310,L360,L380,L382,L383,L390 + Freitext
-   - Aufgabenblock pro Straße (bei Hof: Aufgaben ohne Straße, ohne Abschnitt/Station/RSA)
-       * Felder: Überschrift, (Straße), Abschnitt, Station, RSA, Info
-       * Materialschäden: per Aktiv-Häkchen sichtbar + Text + Bild (+ löschen)
-   - Temperatur: automatisch vorbelegt (Heuristik + Erinnerung), editierbar
-   - Export/Import JSON, PDF-Export
-   ========================================================================== */
+/* ===========================================================
+   Straßenwärter-Helfer – report.js v10.0
+   Modular (mount/unmount), stabil, A5-optimiertes PDF
+   =========================================================== */
 
-function loadReport() {
-  if (document.querySelector(".report-v21")) return; // Doppelinit verhindern
+/* ---------------------------
+   Kleine DOM-/Date-Helfer
+---------------------------- */
+const $  = (s, r=document)=>r.querySelector(s);
+const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
 
-  const main = document.getElementById("mainContent");
-  main.innerHTML = `
-  <section class="report-v21 fade-in">
-    <!-- Kopf -->
-    <div class="card glass-strong">
-      <div class="row gap wrap">
-        <h2 class="grow">📒 Tagesbericht</h2>
-        <label>Datum
-          <input id="repDate" type="date">
-        </label>
-        <label>Temperatur (°C)
-          <input id="repTemp" type="number" step="0.1" placeholder="z. B. 15.0">
-        </label>
-      </div>
-    </div>
+function h(tag, attrs={}, html=""){
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) {
+    if (k==="class") e.className=v; else e.setAttribute(k,v);
+  }
+  if (html) e.innerHTML = html;
+  return e;
+}
 
-    <!-- SM -->
-    <div class="card glass-strong">
-      <h3>🏢 Straßenmeisterei</h3>
-      <div class="btn-group" id="smGroup">
-        <button class="btn sm-btn" data-sm="Berenbostel">SM Berenbostel</button>
-        <button class="btn sm-btn" data-sm="Sarstedt">SM Sarstedt</button>
-        <button class="btn sm-btn" data-sm="Stadthagen">SM Stadthagen</button>
-      </div>
-      <div class="muted sm">Wähle die Meisterei, dann die Tätigkeit. Weitere Bereiche werden eingeblendet.</div>
-    </div>
+function todayPretty(){
+  const d = new Date();
+  const wd = d.toLocaleDateString("de-DE",{weekday:"long"});
+  const dd = String(d.getDate()).padStart(2,"0");
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const yyyy = d.getFullYear();
+  return `${wd}, ${dd}.${mm}.${yyyy}`;
+}
 
-    <!-- Tätigkeit -->
-    <div class="card glass-strong hidden" id="taetigkeitCard">
-      <h3>🧭 Tätigkeit</h3>
-      <div class="btn-group">
-        <button class="btn act-btn" data-act="Kolonne">Kolonne</button>
-        <button class="btn act-btn" data-act="Streckenkontrolle">Streckenkontrolle</button>
-        <button class="btn act-btn" data-act="Hof">Hof</button>
-      </div>
-    </div>
+/** sehr robustes Parsen (dd.mm.yy/yy, oder beliebiger Text) */
+function parseAnyDate(txt){
+  if (!txt) return new Date();
+  const m = String(txt).match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+  if (m){
+    let d = parseInt(m[1],10), mo=parseInt(m[2],10)-1, y=parseInt(m[3],10);
+    if (y<100) y += 2000;
+    const dt=new Date(y,mo,d);
+    if (!isNaN(dt.getTime())) return dt;
+  }
+  const dt2 = new Date(txt);
+  if (!isNaN(dt2.getTime())) return dt2;
+  return new Date();
+}
 
-    <!-- Bezirk (nur BB, nicht Hof) -->
-    <div class="card glass-strong hidden" id="bezirkCard">
-      <h3>🗺️ Bezirk (nur SM Berenbostel)</h3>
-      <div class="btn-group" id="bezirkGroup"></div>
-    </div>
+/* ---------------------------
+   Stammdaten
+---------------------------- */
+const SM_LIST       = ["SM Berenbostel","SM Sarstedt","SM Stadthagen"];
+const BEZIRKE_BB    = ["(Land 1) Wedemark","(Land 2) Neustadt","(Stadt) Hannover"];
+const ORANGE_NUM    = ["701","702","703","686","685","675","680","691","681"];
+const BUND          = ["B3","B6","B65","B442"];
+const LAND          = ["L190","L191","L192","L193","L310","L360","L380","L382","L383","L390"];
 
-    <!-- Leitung -->
-    <div class="card glass-strong hidden" id="leitungCard">
-      <h3>👷 Leitung</h3>
-      <div class="row gap">
-        <input id="leitungName" type="text" placeholder="Name der Leitung …">
-      </div>
-    </div>
+/* ---------------------------
+   State pro Mount-Instanz
+---------------------------- */
+function createState(){
+  return {
+    meisterei: null,
+    taetigkeit: null, // Kolonne | Streckenkontrolle | Hof
+    bezirk: null,
+    leitung: "",
+    datum: todayPretty(),
+    temperatur: (Math.random()*10+10).toFixed(1),
+  };
+}
 
-    <!-- Fahrzeuge (nicht Hof) -->
-    <div class="card glass-strong hidden" id="fahrzeugeCard">
-      <h3>🚛 Fahrzeuge</h3>
-      <div id="vehPresetWrap" class="card glass-light">
-        <h4>Vorauswahl – SM Berenbostel</h4>
-        <div class="muted sm">Wähle Kennzeichen oder füge ein beliebiges hinzu.</div>
-        <div class="btn-group" id="vehPresetGroup"></div>
-        <div class="row gap mt-sm">
-          <input id="vehCustomPlate" type="text" placeholder="Beliebiges Kennzeichen …">
-          <button class="btn" id="vehCustomAdd">+ Hinzufügen</button>
+/* ===========================================================
+   Tagesbericht-Widget
+=========================================================== */
+window.Tagesbericht = (function(){
+
+  let mounted = false;
+  let rootEl  = null;
+  let S       = createState();   // lokaler State je Mount
+
+  /* ---------- Styles nur 1× global injizieren ---------- */
+  function injectStylesOnce(){
+    if ($('#report-v10-css')) return;
+    const css = `
+    :root{
+      --orange:#fb923c;
+      --orange-strong:#f97316;
+      --green:#16a34a;
+      --green-dark:#15803d;
+      --blue:#3b82f6;
+      --bg-dark:#0f172a;
+      --bg-card:rgba(255,255,255,0.06);
+      --bg-inner:rgba(255,255,255,0.12);
+      --border-light:rgba(255,255,255,0.15);
+      --text-light:#e2e8f0;
+      --text-muted:#94a3b8;
+    }
+
+    /* Grundlayout – angepasst an dunkles Dashboard */
+    .rb-card{
+      background:var(--bg-card);
+      border:1px solid var(--border-light);
+      border-radius:12px;
+      padding:16px;
+      box-shadow:0 4px 15px rgba(0,0,0,.3);
+      color:var(--text-light);
+    }
+    .rb-card.inner{
+      background:var(--bg-inner);
+    }
+    .rb-box{
+      background:rgba(255,255,255,0.05);
+      border:1px solid var(--border-light);
+      border-radius:10px;
+      padding:.6rem;
+      color:var(--text-light);
+    }
+    .rb-grid2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+    .rb-group2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+    .rb-btnrow{display:flex;flex-wrap:wrap;gap:.4rem}
+    .rb-hide{display:none !important}
+    .rb-title{color:var(--orange);margin:.2rem 0;font-weight:700}
+    .rb-sub{margin:.2rem 0 1rem 0;color:var(--text-muted)}
+    label{display:block;font-weight:600;color:var(--text-light);margin-bottom:.25rem}
+    input,textarea{
+      width:100%;
+      padding:.5rem;
+      border-radius:10px;
+      border:1px solid var(--border-light);
+      background:rgba(255,255,255,0.1);
+      color:#f1f5f9;
+    }
+    input:focus,textarea:focus{
+      outline:none;
+      border-color:var(--blue);
+      box-shadow:0 0 0 2px rgba(59,130,246,.3);
+    }
+    .rb-btn{
+      cursor:pointer;
+      border:1px solid var(--orange);
+      background:rgba(251,146,60,0.1);
+      color:var(--orange);
+      padding:.45rem .9rem;
+      border-radius:10px;
+      font-weight:600;
+      letter-spacing:.2px;
+      transition:.15s;
+    }
+    .rb-btn:hover{filter:brightness(1.1)}
+    .rb-btn.active{
+      background:var(--green-dark);
+      border-color:var(--green);
+      color:#fff;
+    }
+    .rb-btn.accent{background:var(--blue);border-color:#2563eb;color:#fff}
+    .rb-btn.danger{background:#dc2626;border-color:#b91c1c;color:#fff}
+    .rb-btn.small{padding:.25rem .6rem;font-size:.9em}
+    .rb-pill{font-size:.85rem;font-weight:700;color:var(--orange);margin-bottom:.25rem}
+    .rb-blue{background:rgba(59,130,246,0.15);border-color:#2563eb;color:#bfdbfe}
+    .rb-green{background:rgba(34,197,94,0.15);border-color:#16a34a;color:#bbf7d0}
+    .rb-plate{background:rgba(251,146,60,0.1);border-color:var(--orange-strong);color:var(--orange)}
+    .rb-role{margin-top:.5rem;display:flex;gap:1rem;align-items:center}
+    .rb-radio{cursor:pointer;color:var(--text-light)}
+    .rb-free{display:flex;gap:.4rem;margin-top:.5rem}
+    .rb-right{text-align:right}
+    .rb-mt{margin-top:.7rem}
+    .fade-in{animation:fade .18s ease-out}@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+    `;
+    const tag = h("style",{id:"report-v10-css"},css);
+    document.head.appendChild(tag);
+  }
+
+  /* ---------- Mount ---------- */
+  function mount(containerSelector="#mainContent"){
+    if (mounted) unmount();        // sauberes Re-Mount
+    injectStylesOnce();
+    rootEl = $(containerSelector) || document.body;
+    S = createState();
+    mounted = true;
+    render();
+  }
+
+  /* ---------- Unmount ---------- */
+  function unmount(){
+    if (!mounted) return;
+    if (rootEl) rootEl.innerHTML = "";
+    rootEl = null;
+    mounted = false;
+  }
+
+  /* ---------- Render ---------- */
+  function render(){
+    if (!rootEl) return;
+    rootEl.innerHTML = `
+    <section class="rb-card fade-in">
+      <h2 class="rb-title">🧾 Tagesbericht</h2>
+      <p class="rb-sub"></p>
+
+      <div class="rb-grid2">
+        <div>
+          <label for="rb-datum">Datum:</label>
+          <div style="display:flex;gap:.4rem;align-items:center;">
+            <input id="rb-datum" value="${S.datum}">
+            <input id="rb-date-picker" type="date" style="width:38px;opacity:0;cursor:pointer;">
+          </div>
+        </div>
+        <div>
+          <label for="rb-temp">Temperatur (°C):</label>
+          <input id="rb-temp" type="number" step="0.1" value="${S.temperatur}">
         </div>
       </div>
 
-      <div class="muted sm mt-sm">Gewählte Fahrzeuge erscheinen unten – dort Rolle, Wechsel, Schäden verwalten.</div>
-      <div id="vehList" class="list"></div>
-    </div>
+      <h3>1) Straßenmeisterei</h3>
+      <div id="rb-sm" class="rb-btnrow"></div>
 
-    <!-- Straßen (nur BB, nicht Hof) -->
-    <div class="card glass-strong hidden" id="strassenCard">
-      <h3>🛣️ Straße wählen (nur SM Berenbostel)</h3>
-      <div class="row wrap gap">
-        <div class="card glass-light" style="flex:1;min-width:260px">
-          <h4>🟦 Bundesstraßen</h4>
-          <div class="btn-group" id="bundGroup"></div>
-        </div>
-        <div class="card glass-light" style="flex:1;min-width:260px">
-          <h4>🟩 Landesstraßen</h4>
-          <div class="btn-group" id="landGroup"></div>
-        </div>
+      <div id="rb-t-wrap" class="rb-mt rb-hide">
+        <h3>2) Tätigkeit</h3>
+        <div id="rb-t" class="rb-btnrow"></div>
       </div>
-      <div class="row gap mt-sm">
-        <input id="customRoad" type="text" placeholder="Andere Straße eingeben …">
-        <button class="btn" id="customRoadAdd">+ Übernehmen</button>
-      </div>
-      <div class="muted sm">Wähle eine Straße (oder gib eine ein), um eine Aufgabe anzulegen.</div>
-    </div>
 
-    <!-- Aufgaben -->
-    <div class="card glass-strong hidden" id="aufgabenCard">
-      <div class="row gap wrap">
-        <h3 class="grow">🧱 Aufgaben</h3>
-        <div id="hofAddBtnWrap" class="hidden">
-          <button class="btn accent" id="hofAddTask">+ Aufgabe (ohne Straße)</button>
-        </div>
+      <div id="rb-b-wrap" class="rb-mt rb-hide">
+        <h3>3) Bezirk</h3>
+        <div id="rb-b" class="rb-btnrow"></div>
       </div>
-      <div id="tasksWrap" class="tasks-wrap"></div>
-    </div>
 
-    <!-- Export -->
-    <div class="card glass-strong">
-      <h3>📦 Export / Import</h3>
-      <div class="row wrap gap">
-        <button class="btn" id="btnExport">⬇️ JSON exportieren</button>
-        <label class="filebox">⬆️ JSON importieren
-          <input id="btnImport" type="file" accept="application/json">
-        </label>
-        <button class="btn" id="btnPDF">🖨️ PDF exportieren</button>
+      <div id="rb-l-wrap" class="rb-mt rb-hide">
+        <h3>Leitung</h3>
+        <input id="rb-leitung" placeholder="Name der Leitung">
+      </div>
+
+      <div id="rb-fz-wrap" class="rb-mt rb-hide">
+        <h3>🚚 Fahrzeuge</h3>
+        <div class="rb-card inner">
+          <div class="rb-box">
+            <div class="rb-pill">Orange</div>
+            <div id="rb-orange" class="rb-btnrow"></div>
+          </div>
+          <div class="rb-box rb-mt">
+            <div class="rb-pill">Dienst</div>
+            <div id="rb-dienst" class="rb-btnrow"></div>
+          </div>
+          <div class="rb-role">
+            <label class="rb-radio"><input type="radio" name="rb-rolle" value="Beifahrer" checked> Beifahrer</label>
+            <label class="rb-radio"><input type="radio" name="rb-rolle" value="Fahrer"> Fahrer</label>
+          </div>
+        </div>
+        <button id="rb-add-vchg" class="rb-btn accent rb-mt" type="button">+ Fahrzeugwechsel</button>
+        <div id="rb-vlist" class="rb-mt"></div>
+      </div>
+
+      <div id="rb-str-wrap" class="rb-mt rb-hide">
+        <h3>🛣️ Straße wählen</h3>
+        <div class="rb-group2">
+          <div><div class="rb-pill">Bundesstraße</div><div id="rb-bund" class="rb-btnrow"></div></div>
+          <div><div class="rb-pill">Landesstraße</div><div id="rb-land" class="rb-btnrow"></div></div>
+        </div>
+        <div class="rb-free"><input id="rb-free" placeholder="Beliebige Straße"><button id="rb-free-add" class="rb-btn">Hinzufügen</button></div>
+      </div>
+
+      <h3 class="rb-mt">🛠️ Aufgabenbeschreibung</h3>
+      <div id="rb-tasklist"></div>
+      <div class="rb-right rb-mt">
+        <button id="rb-add-task" class="rb-btn">+ Aufgabe hinzufügen</button>
+      </div>
+
+      <button id="rb-pdf" class="rb-btn accent rb-mt">📄 PDF erstellen</button>
+    </section>`;
+
+    // Aktionen
+    initHeader();
+    renderSMButtons();
+    renderTaetigkeitButtons();
+    renderBezirkButtons();
+    renderVehicleSelectors();
+    renderStreetButtons();
+    bindGlobalButtons();
+  }
+
+/* ---------- Kopf-Inputs ---------- */
+function initHeader(){
+  const dateInput = $("#rb-datum");
+  const picker = $("#rb-date-picker");
+  const tempInput = $("#rb-temp");
+
+  // 🌡️ Temperatur automatisch abrufen (Open-Meteo)
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(async pos => {
+      try {
+        const { latitude, longitude } = pos.coords;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const temp = data?.current_weather?.temperature;
+        if (typeof temp === "number") {
+          S.temperatur = temp.toFixed(1);
+          tempInput.value = S.temperatur;
+        }
+      } catch (err) {
+        console.warn("Temperatur konnte nicht geladen werden:", err);
+      }
+    });
+  }
+
+  // Temperatur bleibt editierbar
+  tempInput.addEventListener("input", e => {
+    S.temperatur = e.target.value;
+  });
+
+  // 🗓️ Manuelle Datumseingabe (Text)
+  dateInput.addEventListener("input", e => {
+    S.datum = e.target.value;
+  });
+
+  // 📅 Datepicker (sichtbar als kleiner Button)
+  picker.style.width = "28px";
+  picker.style.height = "28px";
+  picker.style.opacity = "1";
+  picker.style.cursor = "pointer";
+  picker.style.border = "1px solid rgba(255,255,255,0.25)";
+  picker.style.borderRadius = "6px";
+  picker.style.background = "rgba(255,255,255,0.1)";
+
+  picker.addEventListener("change", e => {
+    const val = e.target.value;
+    if (!val) return;
+    const d = new Date(val);
+    if (isNaN(d)) return;
+    const wd = d.toLocaleDateString("de-DE", { weekday: "long" });
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const formatted = `${wd}, ${dd}.${mm}.${yyyy}`;
+    S.datum = formatted;
+    dateInput.value = formatted;
+  });
+}
+
+  /* ---------- 1) Meisterei ---------- */
+  function renderSMButtons(){
+    const row = $("#rb-sm"); row.innerHTML = "";
+    SM_LIST.forEach(name=>{
+      const b = h("button",{class:"rb-btn"},name);
+      b.onclick = ()=>{
+        activate(row,b); S.meisterei=name;
+
+        // Tätigkeiten sichtbar
+        $("#rb-t-wrap").classList.remove("rb-hide");
+
+        // bei Wechsel reset
+        S.taetigkeit=null; S.bezirk=null;
+        $("#rb-tasklist").innerHTML="";
+        $("#rb-l-wrap").classList.add("rb-hide");
+        $("#rb-b-wrap").classList.add("rb-hide");
+        $("#rb-fz-wrap").classList.add("rb-hide");
+        $("#rb-str-wrap").classList.add("rb-hide");
+      };
+      row.appendChild(b);
+    });
+  }
+
+  /* ---------- 2) Tätigkeit ---------- */
+  function renderTaetigkeitButtons(){
+    const row = $("#rb-t"); row.innerHTML="";
+    ["Kolonne","Streckenkontrolle","Hof"].forEach(t=>{
+      const b = h("button",{class:"rb-btn"},t);
+      b.onclick=()=>{
+        activate(row,b); S.taetigkeit=t;
+
+        $("#rb-l-wrap").classList.remove("rb-hide");
+        const isBB = (S.meisterei==="SM Berenbostel");
+        const isHof = (t==="Hof");
+
+        toggle("#rb-b-wrap", isBB && !isHof);
+        toggle("#rb-fz-wrap", isBB && !isHof);
+        toggle("#rb-str-wrap", isBB && !isHof);
+
+        $("#rb-tasklist").innerHTML="";
+
+        // Hof → direkt ersten Aufgabenblock anlegen (Überschrift + Beschreibung)
+        if (isHof) addTaskBlock(null,true);
+      };
+      row.appendChild(b);
+    });
+
+    // Leitung input
+    $("#rb-leitung").oninput = e => S.leitung = e.target.value;
+  }
+
+  /* ---------- 3) Bezirke ---------- */
+  function renderBezirkButtons(){
+    const row = $("#rb-b"); row.innerHTML="";
+    BEZIRKE_BB.forEach(z=>{
+      const b=h("button",{class:"rb-btn"},z);
+      b.onclick=()=>{ activate(row,b); S.bezirk=z; };
+      row.appendChild(b);
+    });
+  }
+
+  /* ---------- 4) Fahrzeuge ---------- */
+function renderVehicleSelectors(){
+  const oRow = $("#rb-orange"), dRow = $("#rb-dienst");
+  if (!oRow || !dRow) return;
+  oRow.innerHTML = ""; dRow.innerHTML = "";
+
+  // ORANGE-Fahrzeuge
+  ORANGE_NUM.forEach(n=>{
+    const b = h("button",{class:"rb-btn rb-plate"},`Orange-${n}`);
+    b.onclick = ()=>{ 
+      activate(oRow,b); 
+      oRow.dataset.sel = `Orange-${n}`; 
+      delete dRow.dataset.sel; 
+      clear(dRow);
+      $("#rb-orange-custom").value = ""; // Reset eigenes Feld
+    };
+    oRow.appendChild(b);
+  });
+
+  // Benutzerdefiniertes Feld für Orange
+  const orangeInput = h("input", {
+    id: "rb-orange-custom",
+    type: "text",
+    placeholder: "Eigene Nummer",
+    style: "margin-top:6px;width:100%;padding:.3rem;border-radius:6px;border:1px solid #ccc;text-align:center;"
+  });
+  orangeInput.oninput = (e)=>{
+    e.target.value = e.target.value.replace(/[^0-9]/g, ""); // Nur Zahlen
+    if (e.target.value) {
+      oRow.dataset.sel = `Orange-${e.target.value}`;
+      clear(oRow);
+    }
+  };
+  oRow.parentNode.appendChild(orangeInput);
+
+  // Dienst-Fahrzeuge
+  const dienst = h("button",{class:"rb-btn rb-plate"},"Dienst-717");
+  dienst.onclick = ()=>{ 
+    activate(dRow,dienst); 
+    dRow.dataset.sel = "Dienst-717"; 
+    delete oRow.dataset.sel; 
+    clear(oRow);
+    $("#rb-dienst-custom").value = ""; 
+  };
+  dRow.appendChild(dienst);
+
+  // Benutzerdefiniertes Feld für Dienst
+  const dienstInput = h("input", {
+    id: "rb-dienst-custom",
+    type: "text",
+    placeholder: "Eigene Nummer",
+    style: "margin-top:6px;width:100%;padding:.3rem;border-radius:6px;border:1px solid #ccc;text-align:center;"
+  });
+  dienstInput.oninput = (e)=>{
+    e.target.value = e.target.value.replace(/[^0-9]/g, "");
+    if (e.target.value) {
+      dRow.dataset.sel = `Dienst-${e.target.value}`;
+      clear(dRow);
+    }
+  };
+  dRow.parentNode.appendChild(dienstInput);
+
+  const add=$("#rb-add-vchg");
+  if (add) add.onclick=addVehicleBlock;
+}
+
+
+
+function addVehicleBlock() {
+  const vlist = $("#rb-vlist");
+  const idx = vlist.children.length + 1;
+
+  const blk = h("div", { class: "rb-card" });
+  blk.innerHTML = `
+    <div class="rb-row">
+      <div class="rb-col">
+        <h4>Orange</h4>
+        <div id="rb-o-${idx}" class="rb-btn-row"></div>
+      </div>
+      <div class="rb-col">
+        <h4>Dienst</h4>
+        <div id="rb-d-${idx}" class="rb-btn-row"></div>
       </div>
     </div>
-  </section>
+    <div class="rb-row rb-role">
+      <label><input type="radio" name="rb-r-${idx}" value="Beifahrer" checked> Beifahrer</label>
+      <label><input type="radio" name="rb-r-${idx}" value="Fahrer"> Fahrer</label>
+    </div>
+  `;
+  vlist.appendChild(blk);
+
+  // Buttons erzeugen
+  const oRow = $(`#rb-o-${idx}`), dRow = $(`#rb-d-${idx}`);
+  ORANGE_NUM.forEach(n => {
+    const b = h("button", { class: "rb-btn rb-plate" }, `Orange-${n}`);
+    b.onclick = () => { activate(oRow, b); oRow.dataset.sel = `Orange-${n}`; };
+    oRow.appendChild(b);
+  });
+
+  const dienst = h("button", { class: "rb-btn rb-plate" }, "Dienst-717");
+  dienst.onclick = () => { activate(dRow, dienst); dRow.dataset.sel = "Dienst-717"; };
+  dRow.appendChild(dienst);
+
+  // Benutzerdefinierte Felder (Orange & Dienst)
+  const orangeInput = h("input", {
+    type: "text",
+    placeholder: "Eigene Nummer (Orange)",
+    style: "margin-top:6px;width:100%;padding:.3rem;border-radius:6px;border:1px solid #ccc;text-align:center;"
+  });
+  orangeInput.oninput = (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, "");
+    if (e.target.value) {
+      oRow.dataset.sel = `Orange-${e.target.value}`;
+      clear(oRow);
+    }
+  };
+  oRow.parentNode.appendChild(orangeInput);
+
+  const dienstInput = h("input", {
+    type: "text",
+    placeholder: "Eigene Nummer (Dienst)",
+    style: "margin-top:6px;width:100%;padding:.3rem;border-radius:6px;border:1px solid #ccc;text-align:center;"
+  });
+  dienstInput.oninput = (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, "");
+    if (e.target.value) {
+      dRow.dataset.sel = `Dienst-${e.target.value}`;
+      clear(dRow);
+    }
+  };
+  dRow.parentNode.appendChild(dienstInput);
+}
+
+
+
+  /* ---------- 5) Straßen ---------- */
+  function renderStreetButtons(){
+    const b=$("#rb-bund"), l=$("#rb-land");
+    if (!b || !l) return;
+    b.innerHTML=""; l.innerHTML="";
+    BUND.forEach(s=>b.appendChild(streetBtn(s,"rb-blue")));
+    LAND.forEach(s=>l.appendChild(streetBtn(s,"rb-green")));
+    $("#rb-free-add").onclick=()=>{
+      if (S.meisterei!=="SM Berenbostel" || S.taetigkeit==="Hof") return;
+      const v=$("#rb-free").value.trim(); if (v) addTaskBlock(v,false);
+    };
+  }
+  function streetBtn(label, cls){
+    const b=h("button",{class:`rb-btn ${cls}`},label);
+    b.onclick=()=>{ if (S.meisterei!=="SM Berenbostel" || S.taetigkeit==="Hof") return; addTaskBlock(label,false); };
+    return b;
+  }
+
+  /* ---------- 6) Aufgaben ---------- */
+  function addTaskBlock(streetText, hofOnly){
+    const blk=h("div",{class:"rb-card fade-in rb-task"});
+    blk.innerHTML=`
+      <label>Überschrift:</label>
+      <input class="t-title" placeholder="z. B. Absicherung">
+
+      ${hofOnly ? "" : `
+        <label>Straße:</label>
+        <input class="t-street" value="${streetText||""}">
+        <div class="rb-grid2">
+          <div><label>Abschnitt:</label><input class="t-section"></div>
+          <div><label>Station:</label><input class="t-station"></div>
+        </div>
+        <label>RSA-Plan:</label>
+        <input class="t-rsa">
+      `}
+
+      <label>${hofOnly ? "Beschreibung:" : "Nützliche Informationen:"}</label>
+      <textarea class="t-info" rows="2"></textarea>
+
+      <div class="rb-right rb-mt"><button class="rb-btn danger small">❌ Entfernen</button></div>
+    `;
+    $(".rb-btn.danger",blk).onclick=()=>blk.remove();
+    $("#rb-tasklist").appendChild(blk);
+  }
+
+  function bindGlobalButtons(){
+    $("#rb-add-task").onclick=()=>{
+      const isHof = (S.taetigkeit === "Hof");
+      addTaskBlock(null, isHof);
+    };
+    $("#rb-pdf").onclick = makePdf;
+  }
+
+/* ---------- PDF (A5 komprimiert, Seitenumbrüche blockweise) ---------- */
+
+// Kurzhelfer (damit $ / $$ funktionieren)
+function $(sel, root = document) {
+  return root.querySelector(sel);
+}
+function $$(sel, root = document) {
+  return Array.from(root.querySelectorAll(sel));
+}
+
+function makePdf() {
+  // 🧭 Datumsparser – robust gegen alle Varianten
+  function parseAnyDate(dstr) {
+    if (!dstr) return new Date();
+    dstr = dstr.replace(/[A-Za-zäöüÄÖÜ,]/g, "").trim();
+    const parts = dstr.split(/[.\s/,-]/).filter(Boolean);
+    if (parts.length >= 3) {
+      const [dd, mm, yyyy] = parts;
+      const y = yyyy.length === 2 ? "20" + yyyy : yyyy;
+      return new Date(`${y}-${mm}-${dd}`);
+    }
+    const d = new Date(dstr);
+    return isNaN(d) ? new Date() : d;
+  }
+
+  const d = parseAnyDate(S.datum);
+  const day = d.getDate();
+  const month = d.toLocaleString("de-DE", { month: "long" });
+  const year = d.getFullYear();
+  const wday = d.toLocaleString("de-DE", { weekday: "long" });
+
+  const taetigkeit = S.taetigkeit || "";
+  const leiter = $("#rb-leitung")?.value || "";
+
+  const prim = $("#rb-orange")?.dataset.sel || $("#rb-dienst")?.dataset.sel || "–";
+  const primRole = (document.querySelector('input[name="rb-rolle"]:checked')?.value) || "–";
+
+  const wechsel = $$("#rb-vlist .rb-card").map(blk => {
+    const o = $('[id^="rb-o-"]', blk);
+    const d2 = $('[id^="rb-d-"]', blk);
+    let f = "–";
+    if (d2?.dataset.sel) f = d2.dataset.sel;
+    if (o?.dataset.sel) f = o.dataset.sel;
+    const r = ($('input[name^="rb-r-"]:checked', blk)?.value) || "–";
+    return { f, r };
+  });
+
+  const tasks = $$("#rb-tasklist .rb-task").map(t => ({
+    title: $(".t-title", t)?.value || "",
+    street: $(".t-street", t)?.value || "",
+    section: $(".t-section", t)?.value || "",
+    station: $(".t-station", t)?.value || "",
+    rsa: $(".t-rsa", t)?.value || "",
+    info: $(".t-info", t)?.value || "",
+  }));
+
+  // 📄 Kompaktes CSS für PDF (Layout feinjustiert)
+  const compactCSS = `
+  @page {
+    size: auto;
+    margin: 6mm;
+  }
+
+  html, body {
+    font-family: Arial, sans-serif;
+    color: #111;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* ⬅ bleibt oben für A5 */
+  }
+
+  /* A5 Standardgröße */
+  .pdf-wrapper {
+    width: 148mm;
+    max-height: 210mm;
+    transform-origin: top center;
+    margin: 0 auto;
+    page-break-inside: avoid;
+    transition: all 0.3s ease;
+  }
+
+  /* 🖨️ Automatische Skalierung für A4 */
+  @media print {
+    body {
+      justify-content: center;
+      align-items: flex-start; /* bleibt oben */
+    }
+
+    @media (min-width: 200mm) {
+      .pdf-wrapper {
+        transform: scale(1.42);
+        margin-top: -25mm; /* ⬅ schiebt den Inhalt nach oben */
+      }
+    }
+  }
+
+  /* 🧭 Vorschau-Anpassung (auch für Bildschirmansicht A4) */
+  @media screen and (min-width: 800px) {
+    .pdf-wrapper {
+      transform: scale(1.35);
+      transform-origin: top center;
+      margin-top: -20mm; /* ebenfalls leicht nach oben */
+    }
+  }
+
+
+    
+
+  /* Kopfbereich im dynamischen 2-Spalten-Layout */
+  .hdr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+
+  .left-date {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .date-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1;
+  }
+
+  .m {
+    color: #3b82f6;
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: capitalize;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .y { font-size: 11px; color: #555; }
+  .d { font-size: 56px; color: #b45309; font-weight: 800; line-height: .9; margin-top: -4px; }
+  .wd { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+
+  /* Tätigkeit & Leitung dynamisch positioniert */
+  .taskhead {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    text-align: center;
+    margin-top: 0;
+  }
+
+  /* Standard: über Fahrzeuge-Spalte (rechte Seite) */
+  .taskhead.right {
+    align-items: center;
+    justify-self: center;
+  }
+
+  /* Sonderfall Hof → mittig über gesamter Seite */
+  .taskhead.center {
+    grid-column: 1 / span 2;
+    align-items: center;
+    justify-self: center;
+    margin-top: 4px;
+  }
+
+  .taetigkeit {
+    font-size: 22px;
+    font-weight: 800;
+    color: #b45309;
+    line-height: 1.1;
+  }
+
+  .leiter {
+    font-size: 14px;
+    font-weight: 500;
+    color: #000;
+    margin-top: 2px;
+  }
+
+
+
+    /* --- Layout danach --- */
+    .two-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      align-items: start;
+      margin-top: 2mm;
+    }
+
+    h2 {
+      color: #3b82f6;
+      border-bottom: 1.6px solid #3b82f6;
+      margin: 6px 0 3px;
+      font-size: 13px;
+    }
+
+    .box {
+      background: #f8fafc;
+      border: 1px solid #cfd4da;
+      border-radius: 5px;
+      padding: 5px;
+      margin-bottom: 4px;
+    }
+
+    .muted { color: #555; }
+
+    .rowline {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 6px 10px;
+    }
+
+    .task {
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+      margin-bottom: 4px;
+    }
+
+    body, .box { font-size: 11px; }
   `;
 
-  /* ===================== Konstanten ===================== */
-  const LS_KEY = "report_v21_state";
-  const TEMP_LAST_KEY = "report_v21_lastTemp";
 
-  const ROADS_BUND = ["B3","B6","B65","B442"];
-  const ROADS_LAND = ["L190","L191","L192","L193","L310","L360","L380","L382","L383","L390"];
-  const BEZIRKE_BB = ["(Land 1) Wedemark","(Land 2) Neustadt","(Stadt) Hannover"];
 
-  const VEH_BB_PLATES = [
-    "H-SB-701","H-SB-702","H-SB-703","H-SB-686","H-SB-685",
-    "H-SB-675","H-SB-680","H-SB-681","H-SB-691"
-  ];
-
-  /* ===================== Utils ===================== */
-  const E = id => document.getElementById(id);
-  const uid = () => Math.random().toString(36).slice(2,9);
-  const show = (el, v) => el.classList.toggle("hidden", !v);
-  const escapeHTML = s => (s||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
-
-  function todayISO(){
-    const d = new Date();
-    const pad = v => String(v).padStart(2,"0");
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  }
-
-  function toPngData(file){
-    return new Promise(res=>{
-      const fr = new FileReader();
-      fr.onload = ()=> {
-        const img = new Image();
-        img.onload = ()=>{
-          const c = document.createElement("canvas");
-          c.width = img.width; c.height = img.height;
-          c.getContext("2d").drawImage(img, 0, 0);
-          res(c.toDataURL("image/png"));
-        };
-        img.src = fr.result;
-      };
-      fr.readAsDataURL(file);
-    });
-  }
-
-  // Temperatur "wie vorher": erinnere letzten Nutzerwert, sonst heuristische Schätzung nach Tageszeit
-  function autoTemperature(){
-    try {
-      const saved = JSON.parse(localStorage.getItem(TEMP_LAST_KEY) || "null");
-      if (saved && saved.date === todayISO() && typeof saved.temp === "number") return String(saved.temp);
-    } catch {}
-    const h = new Date().getHours();
-    // einfache, stimmige Heuristik nach Tageszeit (editierbar)
-    let t = 15;
-    if (h >= 6 && h < 10) t = 12;
-    else if (h >= 10 && h < 15) t = 17;
-    else if (h >= 15 && h < 18) t = 19;
-    else if (h >= 18 && h < 22) t = 16;
-    else t = 10;
-    return String(t);
-  }
-
-  /* ===================== State ===================== */
-  function defaultState(){
-    return {
-      date: todayISO(),
-      temp: "", // wird unten auto gesetzt falls leer
-      sm: "",
-      taetigkeit: "",
-      bezirk: "",
-      leitung: "",
-      // ausgewählte Fahrzeuge (array), unabhängig von SM-Preselection
-      fahrzeuge: [], // {id, plate, name, rolle: "Fahrer"|"Beifahrer", damageActive, damages:[{id,text,img}]}
-      aufgaben: []   // {id,strasse,ueberschrift,abschnitt,station,rsa,info, matDamageActive, materialDamages:[{id,text,img}]}
-    };
-  }
-
-  function loadStore(){
-    try {
-      const s = JSON.parse(localStorage.getItem(LS_KEY) || "null");
-      if (s && typeof s === "object") {
-        if (!Array.isArray(s.fahrzeuge)) s.fahrzeuge = [];
-        if (!Array.isArray(s.aufgaben)) s.aufgaben = [];
-        return s;
-      }
-    } catch {}
-    return defaultState();
-  }
-  function saveStore(){
-    localStorage.setItem(LS_KEY, JSON.stringify(store));
-    // Letzten Temperaturwert merken (als Komfort-Feature)
-    const t = parseFloat(store.temp);
-    if (!isNaN(t)) localStorage.setItem(TEMP_LAST_KEY, JSON.stringify({date: todayISO(), temp: t}));
-  }
-
-  let store = loadStore();
-  if (!store.temp) { store.temp = autoTemperature(); saveStore(); }
-
-  /* ===================== Render ===================== */
-  function setActiveInGroup(groupEl, value, attr){
-    if (!groupEl) return;
-    groupEl.querySelectorAll(`[data-${attr}]`).forEach(btn=>{
-      btn.classList.toggle("active", btn.dataset[attr] === value);
-    });
-  }
-
-  function renderHeader(){
-    E("repDate").value = store.date || todayISO();
-    E("repTemp").value = store.temp || "";
-  }
-
-  function renderSM(){
-    setActiveInGroup(E("smGroup"), store.sm, "sm");
-    show(E("taetigkeitCard"), !!store.sm);
-  }
-
-  function renderAct(){
-    document.querySelectorAll(".act-btn").forEach(btn=>{
-      btn.classList.toggle("active", btn.dataset.act === store.taetigkeit);
-    });
-    const isSMBB = store.sm === "Berenbostel";
-    const isHof = store.taetigkeit === "Hof";
-
-    show(E("bezirkCard"), isSMBB && !isHof && !!store.taetigkeit);
-    show(E("leitungCard"), !!store.taetigkeit);
-    show(E("fahrzeugeCard"), !isHof && !!store.taetigkeit);
-    show(E("strassenCard"), isSMBB && !isHof && !!store.taetigkeit);
-    show(E("aufgabenCard"), !!store.taetigkeit);
-    show(E("vehPresetWrap"), store.sm === "Berenbostel" && !isHof);
-
-    show(E("hofAddBtnWrap"), isHof);
-  }
-
-  function renderBezirk(){
-    E("bezirkGroup").innerHTML = BEZIRKE_BB.map(b=>(
-      `<button class="btn bez-btn ${store.bezirk===b?'active':''}" data-bez="${b}">${b}</button>`
-    )).join("");
-  }
-
-  function renderVehPreset(){
-    // Buttons zum schnellen Hinzufügen
-    E("vehPresetGroup").innerHTML = VEH_BB_PLATES.map(p => {
-      const already = store.fahrzeuge.find(v => v.plate === p);
-      return `<button class="btn ${already?'active':''}" data-addplate="${p}">${p}</button>`;
-    }).join("");
-  }
-
-  function renderVehicles(){
-    const list = E("vehList");
-    list.innerHTML = "";
-    if (!store.fahrzeuge.length){
-      list.innerHTML = `<p class="muted sm">Noch keine Fahrzeuge ausgewählt.</p>`;
-      return;
-    }
-    store.fahrzeuge.forEach(v=>{
-      const row = document.createElement("div");
-      row.className = "item veh-item";
-      row.innerHTML = `
-        <div class="veh-top row gap wrap">
-          <div class="row gap">
-            <label class="chk"><input type="checkbox" checked disabled><span>Ausgewählt</span></label>
-            <input class="veh-plate" data-id="${v.id}" value="${escapeHTML(v.plate)}" placeholder="Kennzeichen">
-            <input class="veh-name"  data-id="${v.id}" value="${escapeHTML(v.name||"")}" placeholder="Fahrzeug (optional)">
-          </div>
-          <div class="row gap">
-            <div class="radiogroup" data-id="${v.id}">
-              <label class="radio"><input type="radio" name="rolle-${v.id}" value="Fahrer" ${v.rolle==="Fahrer"?"checked":""}><span>Fahrer</span></label>
-              <label class="radio"><input type="radio" name="rolle-${v.id}" value="Beifahrer" ${v.rolle!=="Fahrer"?"checked":""}><span>Beifahrer</span></label>
-            </div>
-            <button class="btn" data-wechsel="${v.id}">Fahrzeugwechsel</button>
-            <button class="btn danger" data-delv="${v.id}">🗑 Entfernen</button>
-          </div>
-        </div>
-
-        <div class="card glass-light mt-sm">
-          <label class="chk">
-            <input type="checkbox" data-vdam-act="${v.id}" ${v.damageActive?"checked":""}>
-            <span>🔧 Beschädigung vorhanden</span>
-          </label>
-
-          <div class="vdam-wrap ${v.damageActive?"":"hidden"}" id="vdam-${v.id}">
-            <div class="row gap wrap mt-sm">
-              <input class="vdam-text" data-id="${v.id}" type="text" placeholder="Beschreibung der Beschädigung …" style="flex:1">
-              <label class="filebox">Bild
-                <input class="vdam-img" data-id="${v.id}" type="file" accept="image/*">
-              </label>
-              <button class="btn" data-vdam-add="${v.id}">+ Eintrag</button>
-            </div>
-            <div class="chips imgchips" id="vdamList-${v.id}">
-              ${renderVehicleDamageChips(v.damages||[], v.id)}
-            </div>
-          </div>
-        </div>
-      `;
-      list.appendChild(row);
-    });
-
-    // Bindings
-    list.querySelectorAll(".veh-plate").forEach(inp=>{
-      inp.oninput = ()=>{ const v=getVeh(inp.dataset.id); if(v){ v.plate = inp.value.trim(); saveStore(); } };
-    });
-    list.querySelectorAll(".veh-name").forEach(inp=>{
-      inp.oninput = ()=>{ const v=getVeh(inp.dataset.id); if(v){ v.name = inp.value.trim(); saveStore(); } };
-    });
-    list.querySelectorAll("[data-delv]").forEach(btn=>{
-      btn.onclick = ()=>{ store.fahrzeuge = store.fahrzeuge.filter(x=>x.id!==btn.dataset.delv); saveStore(); renderVehicles(); };
-    });
-    list.querySelectorAll("[data-wechsel]").forEach(btn=>{
-      btn.onclick = ()=>{ const v=getVeh(btn.dataset.wechsel); if(!v) return; const np = prompt("Neues Kennzeichen für Fahrzeug:", v.plate||""); if(np!==null){ v.plate=np.trim(); saveStore(); renderVehicles(); } };
-    });
-    list.querySelectorAll(".radiogroup").forEach(rg=>{
-      rg.addEventListener("change", e=>{
-        const v=getVeh(rg.dataset.id); if(!v) return;
-        if (e.target && e.target.name === `rolle-${v.id}`) { v.rolle = e.target.value; saveStore(); }
-      });
-    });
-    list.querySelectorAll("[data-vdam-act]").forEach(ch=>{
-      ch.onchange = ()=>{
-        const v=getVeh(ch.dataset.vdamAct); if(!v) return;
-        v.damageActive = ch.checked; if (!v.damageActive) v.damages = v.damages || [];
-        saveStore(); renderVehicles();
-      };
-    });
-    list.querySelectorAll("[data-vdam-add]").forEach(btn=>{
-      btn.onclick = async ()=>{
-        const id = btn.dataset.vdamAdd;
-        const wrap = E(`vdam-${id}`);
-        const text = wrap.querySelector(`.vdam-text[data-id="${id}"]`).value.trim();
-        const fileIn = wrap.querySelector(`.vdam-img[data-id="${id}"]`);
-        let img=""; if (fileIn && fileIn.files && fileIn.files[0]) img = await toPngData(fileIn.files[0]);
-        if (!text && !img) return;
-        const v=getVeh(id); if(!v) return;
-        if (!Array.isArray(v.damages)) v.damages=[];
-        v.damages.push({id:uid(), text, img});
-        wrap.querySelector(`.vdam-text[data-id="${id}"]`).value="";
-        if (fileIn) fileIn.value="";
-        saveStore(); renderVehicles();
-      };
-    });
-    list.querySelectorAll("[data-del-vdam]").forEach(btn=>{
-      btn.onclick = ()=>{
-        const id=btn.dataset.tid, did=btn.dataset.delVdam;
-        const v=getVeh(id); if (!v?.damages) return;
-        v.damages = v.damages.filter(x=>x.id!==did);
-        saveStore(); renderVehicles();
-      };
-    });
-  }
-
-  function renderVehicleDamageChips(arr, vehId){
-    return (arr||[]).map(d=>`
-      <span class="chip imgchip">
-        ${d.img?`<img class="chip-thumb" src="${d.img}">`:""}
-        <span>${escapeHTML(d.text||"")}</span>
-        <button class="chip-x" data-del-vdam="${d.id}" data-tid="${vehId}">✕</button>
-      </span>
-    `).join("");
-  }
-
-  function getVeh(id){ return store.fahrzeuge.find(v=>v.id===id); }
-
-  function renderRoadButtons(){
-    E("bundGroup").innerHTML = ROADS_BUND.map(r=>`<button class="btn road-btn blue" data-road="${r}">${r}</button>`).join("");
-    E("landGroup").innerHTML = ROADS_LAND.map(r=>`<button class="btn road-btn green" data-road="${r}">${r}</button>`).join("");
-  }
-
-  function renderTasks(){
-    const wrap = E("tasksWrap");
-    wrap.innerHTML = "";
-    if (!store.aufgaben.length) {
-      wrap.innerHTML = `<p class="muted sm">Noch keine Aufgaben erfasst.</p>`;
-      return;
-    }
-    const isHof = store.taetigkeit === "Hof";
-
-    store.aufgaben.forEach(t=>{
-      const card = document.createElement("div");
-      card.className = "card glass-light task-card";
-      card.innerHTML = `
-        <div class="row gap wrap">
-          <h4 class="grow">🧱 Aufgabe</h4>
-          <button class="btn danger" data-deltask="${t.id}">🗑 Aufgabe</button>
-        </div>
-
-        <div class="grid">
-          <label>Überschrift
-            <input class="task-ue" data-id="${t.id}" type="text" placeholder="z. B. Deckensanierung" value="${t.ueberschrift||""}">
-          </label>
-
-          ${isHof ? "" : `
-          <label>Straße
-            <input class="task-strasse" data-id="${t.id}" type="text" placeholder="z. B. B6" value="${t.strasse||""}">
-          </label>
-          <label>Abschnitt
-            <input class="task-abschnitt" data-id="${t.id}" type="text" placeholder="z. B. km 2,0 – 4,0" value="${t.abschnitt||""}">
-          </label>
-          <label>Station
-            <input class="task-station" data-id="${t.id}" type="text" placeholder="z. B. 2+300" value="${t.station||""}">
-          </label>
-          <label>RSA-Plan
-            <input class="task-rsa" data-id="${t.id}" type="text" placeholder="z. B. B I/2-1" value="${t.rsa||""}">
-          </label>
-          `}
-        </div>
-
-        <label>Nützliche Informationen</label>
-        <textarea class="task-info" data-id="${t.id}" rows="4" placeholder="Freitext …">${t.info||""}</textarea>
-
-        <!-- Materialschäden (aktivierbar) -->
-        <div class="card glass-strong mt">
-          <label class="chk">
-            <input type="checkbox" data-mdam-act="${t.id}" ${t.matDamageActive?"checked":""}>
-            <span>🧱 Beschädigung am Material?</span>
-          </label>
-
-          <div class="mdam-wrap ${t.matDamageActive?"":"hidden"}" id="mdam-${t.id}">
-            <div class="row gap wrap mt-sm">
-              <input class="mdam-text" data-id="${t.id}" type="text" placeholder="Beschreibung des Mangels/Defekts …" style="flex:1">
-              <label class="filebox">Bild
-                <input class="mdam-img" data-id="${t.id}" type="file" accept="image/*">
-              </label>
-              <button class="btn" data-mdam-add="${t.id}">+ Eintrag</button>
-            </div>
-            <div class="chips imgchips" id="mdamList-${t.id}">
-              ${renderMatDamageChips(t.materialDamages||[], t.id)}
-            </div>
-          </div>
-        </div>
-      `;
-      wrap.appendChild(card);
-
-      // Bindings
-      card.querySelector(".task-ue").oninput = e => { const tt=getTask(t.id); tt.ueberschrift=e.target.value; saveStore(); };
-      if (!isHof) {
-        card.querySelector(".task-strasse").oninput = e => { const tt=getTask(t.id); tt.strasse=e.target.value; saveStore(); };
-        card.querySelector(".task-abschnitt").oninput = e => { const tt=getTask(t.id); tt.abschnitt=e.target.value; saveStore(); };
-        card.querySelector(".task-station").oninput = e => { const tt=getTask(t.id); tt.station=e.target.value; saveStore(); };
-        card.querySelector(".task-rsa").oninput = e => { const tt=getTask(t.id); tt.rsa=e.target.value; saveStore(); };
-      }
-      card.querySelector(".task-info").oninput = e => { const tt=getTask(t.id); tt.info=e.target.value; saveStore(); };
-
-      // Material damage activate
-      card.querySelector(`[data-mdam-act="${t.id}"]`).onchange = (e)=>{
-        const tt=getTask(t.id); tt.matDamageActive = e.target.checked; saveStore(); renderTasks();
-      };
-      // Add material damage
-      card.querySelector(`[data-mdam-add="${t.id}"]`).onclick = async ()=>{
-        const wrap = E(`mdam-${t.id}`);
-        const text = wrap.querySelector(`.mdam-text[data-id="${t.id}"]`).value.trim();
-        const fileIn = wrap.querySelector(`.mdam-img[data-id="${t.id}"]`);
-        let img=""; if (fileIn && fileIn.files && fileIn.files[0]) img = await toPngData(fileIn.files[0]);
-        if (!text && !img) return;
-        const tt=getTask(t.id);
-        if (!Array.isArray(tt.materialDamages)) tt.materialDamages=[];
-        tt.materialDamages.push({id:uid(), text, img});
-        wrap.querySelector(`.mdam-text[data-id="${t.id}"]`).value="";
-        if (fileIn) fileIn.value="";
-        saveStore(); renderTasks();
-      };
-      // delete chips (material)
-      card.querySelectorAll("[data-del-mdam]").forEach(btn=>{
-        btn.onclick = ()=>{
-          const tid=btn.dataset.tid, did=btn.dataset.delMdam;
-          const tt=getTask(tid); if (!tt?.materialDamages) return;
-          tt.materialDamages = tt.materialDamages.filter(x=>x.id!==did);
-          saveStore(); renderTasks();
-        };
-      });
-
-      // Delete entire task
-      card.querySelector(`[data-deltask="${t.id}"]`).onclick = ()=>{
-        store.aufgaben = store.aufgaben.filter(x=>x.id!==t.id);
-        saveStore(); renderTasks();
-      };
-    });
-  }
-
-  function renderMatDamageChips(arr, taskId){
-    return (arr||[]).map(d=>`
-      <span class="chip imgchip">
-        ${d.img?`<img class="chip-thumb" src="${d.img}">`:""}
-        <span>${escapeHTML(d.text||"")}</span>
-        <button class="chip-x" data-del-mdam="${d.id}" data-tid="${taskId}">✕</button>
-      </span>
-    `).join("");
-  }
-
-  function getTask(id){ return store.aufgaben.find(x=>x.id===id); }
-
-  /* ===================== Events – Header ===================== */
-  E("repDate").oninput = ()=>{ store.date = E("repDate").value; saveStore(); };
-  E("repTemp").oninput = ()=>{ store.temp = E("repTemp").value; saveStore(); };
-
-  /* ===================== Events – SM & Tätigkeit & Bezirk ===================== */
-  E("smGroup").addEventListener("click", e=>{
-    const btn = e.target.closest(".sm-btn"); if (!btn) return;
-    store.sm = btn.dataset.sm;
-    // Wechsel der SM: Fahrzeuge zurücksetzen (sonst stimmt die Liste nicht)
-    store.fahrzeuge = [];
-    saveStore();
-    renderSM(); renderAct(); renderVehPreset(); renderVehicles();
-  });
-
-  document.querySelectorAll(".act-btn").forEach(btn=>{
-    btn.onclick = ()=>{
-      store.taetigkeit = btn.dataset.act;
-      if (store.taetigkeit === "Hof") store.bezirk = "";
-      saveStore();
-      renderAct();
-      if (store.sm === "Berenbostel" && store.taetigkeit !== "Hof") {
-        renderBezirk();
-      }
-    };
-  });
-
-  E("bezirkCard").addEventListener("click", e=>{
-    const btn = e.target.closest(".bez-btn"); if (!btn) return;
-    store.bezirk = btn.dataset.bez;
-    saveStore(); renderBezirk();
-  });
-
-  /* ===================== Events – Leitung ===================== */
-  E("leitungName").oninput = ()=>{ store.leitung = E("leitungName").value.trim(); saveStore(); };
-
-  /* ===================== Events – Fahrzeuge ===================== */
-  // Preset hinzufügen (BB)
-  E("vehPresetWrap").addEventListener("click", e=>{
-    const b = e.target.closest("[data-addplate]"); if (!b) return;
-    const plate = b.dataset.addplate;
-    if (!store.fahrzeuge.find(v=>v.plate===plate)){
-      store.fahrzeuge.push({
-        id: uid(),
-        plate,
-        name: "", rolle: "Beifahrer",
-        damageActive: false, damages: []
-      });
-      saveStore(); renderVehPreset(); renderVehicles();
-    }
-  });
-
-  // Custom plate
-  E("vehCustomAdd").onclick = ()=>{
-    const p = E("vehCustomPlate").value.trim(); if (!p) return;
-    store.fahrzeuge.push({ id: uid(), plate:p, name:"", rolle:"Beifahrer", damageActive:false, damages:[] });
-    E("vehCustomPlate").value = "";
-    saveStore(); renderVehPreset(); renderVehicles();
-  };
-
-  /* ===================== Events – Straßenwahl ===================== */
-  E("strassenCard").addEventListener("click", e=>{
-    const btn = e.target.closest(".road-btn"); if (!btn) return;
-    const road = btn.dataset.road || "";
-    if (!road) return;
-    addTask(road);
-  });
-  E("customRoadAdd").onclick = ()=>{
-    const road = E("customRoad").value.trim(); if (!road) return;
-    addTask(road);
-    E("customRoad").value = "";
-  };
-  function addTask(road){
-    if (store.taetigkeit === "Hof") return;
-    store.aufgaben.push({
-      id: uid(),
-      strasse: road || "",
-      ueberschrift: "",
-      abschnitt: "",
-      station: "",
-      rsa: "",
-      info: "",
-      matDamageActive: false,
-      materialDamages: []
-    });
-    saveStore(); renderTasks();
-    setTimeout(()=>{ E("tasksWrap").lastElementChild?.scrollIntoView({behavior:"smooth", block:"end"}); }, 30);
-  }
-
-  // Hof – Aufgabe ohne Straße
-  E("hofAddTask").onclick = ()=>{
-    if (store.taetigkeit !== "Hof") return;
-    store.aufgaben.push({
-      id: uid(),
-      strasse: "", // keine Straße
-      ueberschrift: "",
-      abschnitt: "", // wird nicht genutzt/angezeigt
-      station: "",
-      rsa: "",
-      info: "",
-      matDamageActive: false,
-      materialDamages: []
-    });
-    saveStore(); renderTasks();
-    setTimeout(()=>{ E("tasksWrap").lastElementChild?.scrollIntoView({behavior:"smooth", block:"end"}); }, 30);
-  };
-
-  /* ===================== Export / Import ===================== */
-  E("btnExport").onclick = ()=>{
-    const blob = new Blob([JSON.stringify(store)], {type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `Tagesbericht_${store.date||todayISO()}.json`;
-    a.click();
-  };
-  E("btnImport").onchange = async (e)=>{
-    const f = e.target.files[0]; if (!f) return;
-    try {
-      const data = JSON.parse(await f.text());
-      if (data && typeof data === "object") {
-        store = data;
-        if (!Array.isArray(store.fahrzeuge)) store.fahrzeuge = [];
-        if (!Array.isArray(store.aufgaben)) store.aufgaben = [];
-        if (!store.date) store.date = todayISO();
-        if (!store.temp) store.temp = autoTemperature();
-        saveStore(); renderAll(); alert("✅ Bericht importiert.");
-      } else throw 0;
-    } catch { alert("❌ Ungültige oder beschädigte Datei."); }
-    e.target.value = "";
-  };
-
-  /* ===================== PDF ===================== */
-  E("btnPDF").onclick = ()=> exportPDF();
-
-  function exportPDF(){
-    const w = window.open("", "_blank");
-    const head = `
-      <style>
-        *{box-sizing:border-box} body{font-family:Inter,Arial; margin:26px; color:#111}
-        h1{margin:0 0 8px; color:#f97316; font-size:22px}
-        h2{margin:16px 0 6px; border-bottom:2px solid #f97316; padding-bottom:4px}
-        h3{margin:10px 0 6px}
-        table{border-collapse:collapse; width:100%; margin-top:6px}
-        th,td{border:1px solid #ddd; padding:6px; font-size:12px}
-        th{background:#f3f4f6; text-align:left}
-        .row{display:flex; gap:16px; flex-wrap:wrap}
-        .muted{color:#555}
-        .kacheln{display:grid; grid-template-columns:repeat(auto-fill, minmax(90px,1fr)); gap:6px; margin-top:6px}
-        .kacheln img{width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:5px; border:1px solid #ddd}
-        .sect{margin:10px 0 14px}
-        .task{border:1px solid #e5e7eb; border-radius:8px; padding:10px; margin-bottom:10px}
-        .task h3{margin-top:0}
-      </style>
-    `;
-
-    const header = `
-      <h1>STRAßENWÄRTER – TAGESBERICHT</h1>
-      <div class="row">
-        <div><b>Datum:</b> ${store.date||"-"}</div>
-        <div><b>Temperatur:</b> ${store.temp?store.temp+" °C":"-"}</div>
+const html = `
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Tagesbericht</title>
+<style>${compactCSS}</style></head><body>
+  <div class="pdf-wrapper">
+    <div class="hdr">
+    <div class="left-date">
+      <div class="date-block">
+        <div class="m">${month}<span class="y"> ${year}</span></div>
+        <div class="d">${day}</div>
       </div>
-      <div class="row">
-        <div><b>Meisterei:</b> ${store.sm||"-"}</div>
-        <div><b>Tätigkeit:</b> ${store.taetigkeit||"-"}</div>
-        <div><b>Bezirk:</b> ${store.bezirk||"-"}</div>
-        <div><b>Leitung:</b> ${store.leitung||"-"}</div>
+      <div class="wd">${wday}</div>
+    </div>
+    <div class="taskhead">
+      <div class="taetigkeit">${taetigkeit}</div>
+      <div class="leiter">${leiter}</div>
+    </div>
+  </div>
+
+  <div class="two-cols">
+    <div class="col">
+      <h2>Meisterei & Daten</h2>
+      <div class="box">
+        <b>Meisterei:</b> ${S.meisterei || "-"}<br>
+        ${(S.meisterei === "SM Berenbostel" && S.taetigkeit !== "Hof") ? `<b>Bezirk:</b> ${S.bezirk || "-"}<br>` : ""}
+        <b>Temperatur:</b> ${S.temperatur || "-"} °C
       </div>
-    `;
-
-    // Fahrzeuge (mit Rolle) + Fahrzeugschäden
-    const vehInfo = store.fahrzeuge.length
-      ? store.fahrzeuge.map(v=>`${escapeHTML(v.plate)}${v.name?(" – "+escapeHTML(v.name)):""} (${v.rolle||"Beifahrer"})`).join("<br>")
-      : "—";
-
-    const vehDamages = store.fahrzeuge.flatMap(v=>{
-      if (!v.damageActive || !Array.isArray(v.damages) || !v.damages.length) return [];
-      // markiere pro Fahrzeug
-      return [{_veh:v, items:v.damages}];
-    });
-
-    const vehDamageHTML = vehDamages.length ? `
-      <div class="sect">
-        <h2>Fahrzeugbeschädigungen</h2>
-        ${vehDamages.map(entry=>{
-          const v = entry._veh, items = entry.items;
-          return `
-            <h3>${escapeHTML(v.plate)}${v.name?(" – "+escapeHTML(v.name)):""} (${v.rolle||"Beifahrer"})</h3>
-            <div class="kacheln">
-              ${items.map(d=> d.img ? `<figure><img src="${d.img}"><figcaption style="font-size:11px">${escapeHTML(d.text||"")}</figcaption></figure>` : `<div>${escapeHTML(d.text||"")}</div>`).join("")}
-            </div>
-          `;
-        }).join("")}
-      </div>
-    ` : "";
-
-    const tasksHTML = store.aufgaben.map(t=>{
-      const isHof = store.taetigkeit === "Hof";
-      const dm = (t.materialDamages||[]);
-      return `
-        <div class="task">
-          ${t.ueberschrift ? `<h3>${escapeHTML(t.ueberschrift)}</h3>` : ""}
-          ${!isHof && t.strasse ? `<p><b>Straße:</b> ${escapeHTML(t.strasse)}</p>` : ""}
-          ${!isHof ? `
-            <div class="row">
-              <div><b>Abschnitt:</b> ${escapeHTML(t.abschnitt||"-")}</div>
-              <div><b>Station:</b> ${escapeHTML(t.station||"-")}</div>
-              <div><b>RSA-Plan:</b> ${escapeHTML(t.rsa||"-")}</div>
-            </div>
-          ` : ""}
-          ${t.info ? `<div class="sect"><b>Info:</b><br>${escapeHTML(t.info).replace(/\n/g,"<br>")}</div>` : ""}
-
-          ${dm.length ? `
-            <div class="sect">
-              <b>Beschädigungen – Materialien</b>
-              <div class="kacheln">
-                ${dm.map(d=> d.img ? `<figure><img src="${d.img}"><figcaption style="font-size:11px">${escapeHTML(d.text||"")}</figcaption></figure>` : `<div>${escapeHTML(d.text||"")}</div>`).join("")}
-              </div>
-            </div>
-          ` : ""}
-        </div>
-      `;
-    }).join("");
-
-    const html = `
-      ${header}
+    </div>
+    <div class="col">
       <h2>Fahrzeuge</h2>
-      <p>${vehInfo}</p>
-      ${vehDamageHTML}
-      <h2>Aufgaben</h2>
-      ${tasksHTML || "<p class='muted'>—</p>"}
-    `;
+      <div class="box"><b>${prim}</b> – ${primRole}</div>
+      ${wechsel.map(w => `
+        <div class="box"><b>${w.f}</b> – ${w.r} <span class="muted">(Wechsel)</span></div>
+      `).join("")}
+    </div>
+  </div>
 
-    w.document.write(`<html><head><meta charset="utf-8">${head}</head><body>${html}</body></html>`);
-    w.document.close(); w.focus();
-  }
+  <h2>Aufgaben</h2>
+  ${tasks.length ? tasks.map(t => `
+    <div class="box task">
+      <b>${t.title || "Aufgabe"}</b><br>
+      ${S.taetigkeit === "Hof" ? `
+        <div class="muted">${t.info || "-"}</div>
+      ` : `
+        <div class="rowline">
+          <span><b>Straße:</b> ${t.street || "-"}</span>
+          <span><b>Abschnitt:</b> ${t.section || "-"}</span>
+          <span><b>Station:</b> ${t.station || "-"}</span>
+          <span><b>RSA:</b> ${t.rsa || "-"}</span>
+        </div>
+        <div class="muted" style="margin-top:3px;">${t.info || "-"}</div>
+      `}
+    </div>
+  `).join("") : `<div class="box">Noch keine Aufgaben erfasst.</div>`}
+      </div> <!-- end pdf-wrapper -->
+</body></html>`.trim();
 
-  /* ===================== Initiale Road/Preset-Befüllung ===================== */
-  function renderAll(){
-    renderHeader();
-    renderSM();
-    renderAct();
-    if (store.sm === "Berenbostel" && store.taetigkeit !== "Hof" && store.taetigkeit) renderBezirk();
-    renderVehPreset();
-    renderVehicles();
-    renderRoadButtons();
-    renderTasks();
-  }
-  renderAll();
+  // PDF-Fenster öffnen
+  const w = window.open("about:blank", "_blank");
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 
-  /* ===================== Hilfsstyles (klein & lokal) ===================== */
-  (function injectLocalStyles(){
-    const style = document.createElement("style");
-    style.textContent = `
-      .report-v21 .hidden{display:none!important}
-      .report-v21 .btn-group{display:flex;flex-wrap:wrap;gap:.4rem}
-      .report-v21 .btn.active{border-color:#f97316;box-shadow:0 0 0 2px rgba(249,115,22,.15)}
-      .report-v21 .btn.blue{background:#e0f2fe;border-color:#93c5fd}
-      .report-v21 .btn.green{background:#dcfce7;border-color:#86efac}
-      .report-v21 .tasks-wrap{display:grid;gap:.8rem}
-      .report-v21 .chips.imgchips{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.4rem}
-      .report-v21 .chip.imgchip{display:inline-flex;align-items:center;gap:.35rem;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:14px;padding:.15rem .4rem}
-      .report-v21 .chip-thumb{width:46px;height:35px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb}
-      .report-v21 .veh-item .veh-top{align-items:center;justify-content:space-between}
-      .report-v21 .radio input{margin-right:.35rem}
-      .report-v21 .radiogroup{display:flex;gap:.6rem;align-items:center}
-    `;
-    document.head.appendChild(style);
-  })();
+  // 🔧 Druckfenster stabil öffnen und danach automatisch schließen
+  setTimeout(() => {
+    try {
+      w.focus();
+      w.print();
+      setTimeout(() => {
+        try { w.close(); } catch {}
+        window.focus();
+      }, 2500);
+    } catch (err) {
+      console.error("PDF-Druckfehler:", err);
+      try { w.close(); } catch {}
+      window.focus();
+    }
+  }, 300);
 }
+
+  /* ---------- kleine UI-Helfer ---------- */
+  function activate(container, btn){ $$(".rb-btn",container).forEach(x=>x.classList.remove("active")); btn.classList.add("active"); }
+  function clear(container){ $$(".rb-btn",container).forEach(x=>x.classList.remove("active")); }
+  function toggle(sel, on){ const n=$(sel); if(n) n.classList.toggle("rb-hide", !on); }
+
+/* ---------- öffentliche API ---------- */
+  return { mount, unmount, addTaskBlock };
+})();
+
+
+/* Optionales Auto-Mount, wenn ein Container vorhanden ist.
+   Entferne das, wenn dein Router selbst Tagesbericht.mount() aufruft. */
+
+
+/* Für andere Tabs:
+   - Beim Öffnen des Tagesberichts:  Tagesbericht.mount('#mainContent')
+   - Beim Verlassen (optional):      Tagesbericht.unmount()
+*/
