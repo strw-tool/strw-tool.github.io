@@ -1,263 +1,207 @@
-/* ==========================================================================
-   Straßenwärter Tool – report.css v2.1
-   Angepasst an report.js v2.1 (Tagesbericht)
-   ==========================================================================
-   Design-Ziele:
-   - Klare visuelle Hierarchie
-   - Sanfte Glasoptik mit dezenten Schattierungen
-   - Einheitliche Buttons (blau/grün/orange)
-   - Bessere Abstände, Textlesbarkeit, Fokuszustände
-   ========================================================================== */
+/* ===========================================================
+   report.css v7.5 – Kalenderblatt-Stil (hell, orange/blau)
+   =========================================================== */
 
-:root {
-  --clr-accent: #f97316;  /* Orange */
-  --clr-bg-light: rgba(255, 255, 255, 0.6);
-  --clr-bg-strong: rgba(255, 255, 255, 0.85);
-  --clr-border: rgba(0, 0, 0, 0.1);
-  --clr-blue: #3b82f6;
-  --clr-green: #22c55e;
-  --clr-muted: #6b7280;
-  --radius: 12px;
+/* --- Grundlayout --- */
+body {
+  font-family: "Inter", Arial, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+  margin: 0;
+  padding: 0;
+  line-height: 1.4;
 }
 
-/* Karten und Layout */
-.report-v21 .card {
-  background: var(--clr-bg-light);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--clr-border);
-  border-radius: var(--radius);
-  padding: 1rem 1.2rem;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.08);
-  transition: background 0.2s ease;
+h2, h3, h4 {
+  color: #fb923c; /* Orange Akzent */
+  margin-top: 0.75rem;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
 }
 
-.report-v21 .card.glass-strong {
-  background: var(--clr-bg-strong);
-}
-
-.report-v21 .card.glass-light {
-  background: rgba(255,255,255,0.45);
-}
-
-.report-v21 .row {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-}
-
-.report-v21 .wrap {
-  flex-wrap: wrap;
-}
-
-.report-v21 .grow {
-  flex: 1;
-}
-
-.report-v21 .mt-sm {
-  margin-top: 0.6rem;
-}
-
-.report-v21 .mt {
-  margin-top: 1rem;
-}
-
-/* Buttons */
-.report-v21 .btn {
-  background: rgba(255,255,255,0.9);
-  border: 1px solid var(--clr-border);
-  border-radius: 8px;
-  padding: 0.45rem 0.9rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.15s ease;
-}
-
-.report-v21 .btn:hover {
-  background: #fff;
-  border-color: var(--clr-accent);
-}
-
-.report-v21 .btn.active {
-  border-color: var(--clr-accent);
-  box-shadow: 0 0 0 3px rgba(249,115,22,0.2);
-}
-
-.report-v21 .btn.accent {
-  background: var(--clr-accent);
-  color: white;
-  border-color: var(--clr-accent);
-}
-
-.report-v21 .btn.accent:hover {
-  background: #ea580c;
-}
-
-.report-v21 .btn.blue {
-  background: #e0f2fe;
-  border-color: #93c5fd;
-}
-
-.report-v21 .btn.green {
-  background: #dcfce7;
-  border-color: #86efac;
-}
-
-.report-v21 .btn.danger {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #b91c1c;
-}
-
-.report-v21 .btn.danger:hover {
-  background: #fca5a5;
-  color: white;
-}
-
-/* Eingaben */
-.report-v21 input,
-.report-v21 textarea,
-.report-v21 select {
-  width: 100%;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--clr-border);
-  border-radius: 6px;
-  background: rgba(255,255,255,0.85);
-  font-size: 0.9rem;
-}
-
-.report-v21 input:focus,
-.report-v21 textarea:focus {
-  outline: none;
-  border-color: var(--clr-accent);
-  box-shadow: 0 0 0 2px rgba(249,115,22,0.25);
-}
-
-.report-v21 label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+label {
+  display: block;
   font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.25rem;
 }
 
-/* Checkboxen / Radiobuttons */
-.report-v21 .chk,
-.report-v21 .radio {
+input, select, textarea {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: .45rem .6rem;
+  color: #0f172a;
+  font-size: 0.95rem;
+  transition: border-color .2s, box-shadow .2s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+}
+
+/* --- Buttons --- */
+.btn {
+  cursor: pointer;
+  border: 1px solid #fb923c;
+  background: #fff7ed;
+  color: #92400e;
+  padding: .45rem .9rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all .15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.btn:hover {
+  background: #ffedd5;
+  transform: translateY(-1px);
+}
+.btn.active {
+  background: #22c55e;
+  border-color: #16a34a;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 4px rgba(34,197,94,0.4);
+}
+.btn.accent {
+  background: #3b82f6;
+  border-color: #2563eb;
+  color: #fff;
+}
+.btn.accent:hover {
+  background: #2563eb;
+}
+.btn.danger {
+  background: #ef4444;
+  border-color: #dc2626;
+  color: #fff;
+}
+.btn.danger:hover {
+  background: #dc2626;
+}
+
+/* --- Straßenfarben --- */
+.btn.blue {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+.btn.blue:hover {
+  background: #dbeafe;
+}
+.btn.blue.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn.green {
+  border-color: #16a34a;
+  background: #ecfdf5;
+  color: #064e3b;
+}
+.btn.green:hover {
+  background: #bbf7d0;
+}
+.btn.green.active {
+  background: #16a34a;
+  color: #fff;
+}
+
+/* --- Container & Layout --- */
+.card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.9rem;
+  margin-bottom: 0.8rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.box {
+  background: #f9fafb;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: .6rem;
+}
+
+.btnrow {
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-bottom: .3rem;
+}
+
+.groupRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}
+
+/* --- Überschriften & kleine Titel --- */
+.pilltitle {
+  font-size: .85rem;
+  font-weight: 600;
+  color: #3b82f6;
+  margin-bottom: .25rem;
+}
+.pilltitle.blue { color: #3b82f6; }
+.pilltitle.green { color: #16a34a; }
+
+/* --- Fade Animation --- */
+.fade-in {
+  animation: fade .2s ease-out;
+}
+@keyframes fade {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* --- Freie Straße & Text --- */
+.freeStreet {
+  display: flex;
+  gap: .4rem;
+  margin-top: .5rem;
+}
+
+.radioLabel {
   cursor: pointer;
   user-select: none;
-  font-size: 0.9rem;
 }
 
-.report-v21 input[type="checkbox"],
-.report-v21 input[type="radio"] {
-  accent-color: var(--clr-accent);
-  width: 1rem;
-  height: 1rem;
-  cursor: pointer;
-}
-
-/* Chips */
-.report-v21 .chips.imgchips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
-}
-
-.report-v21 .chip.imgchip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 18px;
-  padding: 0.2rem 0.5rem;
-}
-
-.report-v21 .chip-thumb {
-  width: 50px;
-  height: 38px;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-}
-
-.report-v21 .chip-x {
-  background: none;
-  border: none;
-  color: #9ca3af;
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-  padding: 0 0.3rem;
-}
-
-.report-v21 .chip-x:hover {
-  color: #b91c1c;
-}
-
-/* Aufgaben */
-.report-v21 .task-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 1rem;
-  background: rgba(255,255,255,0.65);
-}
-
-.report-v21 .task-card h4 {
-  margin-top: 0;
-  color: var(--clr-accent);
-}
-
-.report-v21 .task-card textarea {
-  min-height: 90px;
-}
-
-/* Bilder-Kacheln (für PDF-Vorschau etc.) */
-.report-v21 .kacheln {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 0.4rem;
-}
-
-.report-v21 .kacheln img {
-  width: 100%;
-  aspect-ratio: 4/3;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-}
-
-/* Kleinere Elemente */
-.report-v21 .muted {
-  color: var(--clr-muted);
-  font-size: 0.85rem;
-}
-
-.report-v21 .fade-in {
-  animation: fadeIn 0.4s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Responsive Anpassung */
-@media (max-width: 700px) {
-  .report-v21 .row {
-    flex-direction: column;
-    align-items: flex-start;
+/* --- Druckfreundliche Tabelle & A5-Optimierung --- */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
   }
-
-  .report-v21 .btn-group {
-    flex-direction: column;
-    width: 100%;
+  .btn, input, select, textarea {
+    box-shadow: none;
   }
-
-  .report-v21 .btn {
-    width: 100%;
+  .card {
+    border: none;
+    box-shadow: none;
   }
+}
+
+/* --- Visuelle Details --- */
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+}
+
+.section-title h2 {
+  margin: 0 0 .25rem 0;
+}
+
+button:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
