@@ -1867,3 +1867,93 @@ select::-webkit-scrollbar-thumb {
   background-color: rgba(255,255,255,0.2);
   border-radius: 4px;
 }
+.project-doc .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.project-doc input,
+.project-doc textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #e5e7eb;
+  padding: 8px 10px;
+  border-radius: 8px;
+  outline: none;
+  resize: vertical;
+}
+
+.project-doc input:focus,
+.project-doc textarea:focus {
+  border-color: rgba(249,115,22,0.5);
+  box-shadow: 0 0 10px rgba(249,115,22,0.2);
+}
+
+.project-doc .img-upload {
+  margin-top: 16px;
+}
+
+.project-doc .img-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.project-doc .img-preview img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: transform 0.2s ease;
+}
+.project-doc .img-preview img:hover {
+  transform: scale(1.05);
+}
+
+.project-doc .actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+}
+/* ======================================================
+   Straßen-Auswahl Buttons Fix (B3, B6, B65, etc.)
+   ====================================================== */
+
+.road-btn {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #e5e7eb;
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
+  font-weight: 600;
+  transition: all 0.25s ease;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
+
+.road-btn:hover {
+  background: rgba(255,255,255,0.12) !important;
+  border-color: rgba(249,115,22,0.4);
+  transform: translateY(-1px);
+}
+
+/* 🟦 Aktiv: Bundesstraße */
+.road-btn.blue.active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #fff !important;
+  box-shadow: 0 0 10px rgba(37,99,235,0.6);
+}
+
+/* 🟩 Aktiv: Landesstraße */
+.road-btn.green.active {
+  background: #16a34a !important;
+  border-color: #16a34a !important;
+  color: #fff !important;
+  box-shadow: 0 0 10px rgba(22,163,74,0.6);
+}
