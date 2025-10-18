@@ -1,90 +1,103 @@
-(function () {
-  const conf = window.__AUTH_CONF__ || {};
-  const SALT_HEX = conf.saltHex;
-  const ITER = conf.iterations || 200000;
-  const DERIVED_B64 = conf.derivedB64;
-  const enc = new TextEncoder();
+/* ================================================================
+   Straßenwärter Tool – Dashboard v11 "Simplified Kachel-Layout"
+   ---------------------------------------------------------------
+   - Entfernt: Winterdienst, Mini-Rechner, Notizen, KPI-Karten
+   - Neue Struktur: Wetter- & Zeitkacheln
+   - Schnellzugriff: Tagesbericht, Informationen, RSA, Schilderwald, ARP-Nummern
+   ================================================================ */
 
-  function hexToBytes(hex) {
-    return new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)));
-  }
+function loadDashboard() {
+  const main = document.getElementById("mainContent");
+  main.innerHTML = `
+  <section class="dash-v11 fade-in">
+    <div class="v11-grid">
 
-  async function deriveB64(username, password) {
-    const secret = `${username}:${password}`;
-    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(secret), "PBKDF2", false, ["deriveBits"]);
-    const bits = await crypto.subtle.deriveBits(
-      { name: "PBKDF2", salt: hexToBytes(SALT_HEX), iterations: ITER, hash: "SHA-256" },
-      keyMaterial,
-      256
-    );
-    const hashBytes = new Uint8Array(bits);
-    let bin = "";
-    hashBytes.forEach(b => bin += String.fromCharCode(b));
-    return btoa(bin);
-  }
+      <!-- Zeit & Datum -->
+      <div class="card glass">
+        <h3 class="card-title">📅 Datum & Uhrzeit</h3>
+        <p id="liveTime" class="clock glow-text"></p>
+      </div>
 
-  function now() { return Date.now(); }
-  function createRememberToken() {
-    const exp = now() + 1000 * 60 * 60 * 24 * 14;
-    return btoa(JSON.stringify({ exp }));
-  }
-  function readRememberToken() {
-    try {
-      const tok = localStorage.getItem("auth.remember"); if (!tok) return false;
-      const { exp } = JSON.parse(atob(tok)); return exp > now();
-    } catch (e) { return false; }
-  }
-  function setSession() { sessionStorage.setItem("auth.session", "ok"); }
-  function clearSession() { sessionStorage.removeItem("auth.session"); localStorage.removeItem("auth.remember"); }
-  function hasSession() { return sessionStorage.getItem("auth.session") === "ok" || readRememberToken(); }
+      <!-- Wetterinformationen -->
+      <div class="card glass weather-card">
+        <h3 class="card-title">🌦️ Wetterinformationen</h3>
+        <div class="weather-wrap">
+          <div class="weather-details">
+            <p><b>Ort:</b> <span id="wxLocation">–</span></p>
+            <p><b>Temperatur:</b> <span id="wxTemp">– °C</span></p>
+            <p><b>Wind:</b> <span id="wxWind">– km/h</span></p>
+            <p><b>Bedingungen:</b> <span id="wxCond">–</span></p>
+          </div>
+          <div class="weather-visual">
+            <div class="wx-icon" id="wxIcon">🌤️</div>
+            <div class="wx-glow"></div>
+          </div>
+        </div>
+      </div>
 
-  window.Auth = {
-    hasSession, clearSession,
-    async login({ username, password, remember }) {
-      const b64 = await deriveB64((username || "").trim(), password || "");
-      if (b64 !== DERIVED_B64) return { ok: false, reason: "Ungültige Anmeldedaten." };
-      setSession();
-      if (remember) localStorage.setItem("auth.remember", createRememberToken());
-      return { ok: true };
-    }
-  };
+      <!-- Schnellzugriff -->
+      <div class="card accent-card">
+        <h3 class="card-title">⚡ Schnellzugriff</h3>
+        <div class="quick-links">
+          <button class="btn link" data-tab="report">📘 Tagesbericht</button>
+          <button class="btn link" data-tab="info">ℹ️ Informationen</button>
+          <button class="btn link" data-tab="rsa">🚧 RSA</button>
+          <button class="btn link" data-tab="signs">🚦 Schilderwald</button>
+          <button class="btn link" data-tab="arp">🧾 ARP-Nummern</button>
+        </div>
+      </div>
 
-  window.addEventListener("DOMContentLoaded", () => {
-    const overlay = document.getElementById("loginOverlay");
-    const app = document.getElementById("app");
-    const splash = document.getElementById("splash");
-    const userEl = document.getElementById("loginUser");
-    const passEl = document.getElementById("loginPass");
-    const btn = document.getElementById("loginBtn");
-    const rem = document.getElementById("rememberMe");
-    const err = document.getElementById("loginError");
+    </div>
+  </section>
+  `;
 
-    async function unlockApp() {
-      overlay.classList.remove("active");
-      document.body.classList.remove("auth-locked");
-      app.classList.add("ready");
-      app.setAttribute("aria-hidden", "false");
-      if (splash) {
-        splash.classList.add("active");
-        setTimeout(() => splash.classList.remove("active"), 2800);
+  // Live-Uhrzeit aktualisieren
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Wetterdaten laden (Dummy bis API oder lokale Funktion implementiert ist)
+  loadWeather();
+
+  // Eventlistener für Schnellzugriffe
+  document.querySelectorAll(".quick-links .btn.link").forEach(btn => {
+    btn.addEventListener("click", e => {
+      const tab = e.target.getAttribute("data-tab");
+      if (typeof loadTab === "function") {
+        loadTab(tab);
+      } else {
+        alert("Modul '" + tab + "' wird geladen...");
       }
-      if (typeof loadDashboard === "function") loadDashboard();
-    }
-
-    if (window.Auth.hasSession()) { unlockApp(); return; }
-    setTimeout(() => userEl?.focus(), 0);
-
-    async function doLogin() {
-      err.textContent = ""; btn.disabled = true;
-      try {
-        const { ok, reason } = await window.Auth.login({ username: userEl.value, password: passEl.value, remember: rem.checked });
-        if (!ok) { err.textContent = reason || "Login fehlgeschlagen."; btn.disabled = false; return; }
-        await unlockApp();
-      } catch (e) {
-        err.textContent = "Es gab ein Problem. Bitte erneut versuchen."; btn.disabled = false;
-      }
-    }
-    btn?.addEventListener("click", doLogin);
-    passEl?.addEventListener("keydown", ev => { if (ev.key === "Enter") doLogin(); });
+    });
   });
-})();
+}
+
+/* === Live-Uhrzeit === */
+function updateClock() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('de-DE', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  });
+  const timeStr = now.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  document.getElementById("liveTime").innerHTML = `
+    <span class="date">${dateStr}</span>
+    <span class="time">${timeStr}</span>
+  `;
+}
+
+
+/* === Wetterdaten (Dummy) === */
+function loadWeather() {
+  // Beispielhafte Werte, kann später mit API ersetzt werden
+  document.getElementById("wxLocation").textContent = "Musterstadt";
+  document.getElementById("wxTemp").textContent = "14";
+  document.getElementById("wxWind").textContent = "12";
+  document.getElementById("wxCond").textContent = "Bewölkt";
+  document.getElementById("wxIcon").textContent = "⛅";
+}
