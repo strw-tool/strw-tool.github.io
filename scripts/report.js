@@ -577,7 +577,9 @@ function addVehicleBlock() {
       const isHof = (S.taetigkeit === "Hof");
       addTaskBlock(null, isHof);
     };
-    $("#rb-pdf").onclick = makePdf;
+$("#rb-pdf").replaceWith($("#rb-pdf").cloneNode(true));
+document.querySelector("#rb-pdf").onclick = makePdf;
+
   }
 
 /* ---------- PDF (A5 komprimiert, Seitenumbrüche blockweise) ---------- */
@@ -636,236 +638,285 @@ function makePdf() {
     info: $(".t-info", t)?.value || "",
   }));
 
-  // 📄 Kompaktes CSS für PDF (Layout feinjustiert)
-  const compactCSS = `
+// 📄 PDF-Layout – automatische Seitenteilung + angepasste Kästchenhöhe
+const compactCSS = `
+  /* ---------- Seitengröße & Ränder ---------- */
   @page {
-    size: auto;
-    margin: 6mm;
+    size: A4 portrait;
+    margin: 6mm 8mm 8mm 8mm;
   }
 
   html, body {
     font-family: Arial, sans-serif;
     color: #111;
     margin: 0;
+    padding: 0;
     width: 100%;
     height: 100%;
+    background: white;
   }
 
   body {
     display: flex;
     justify-content: center;
-    align-items: flex-start; /* ⬅ bleibt oben für A5 */
+    align-items: flex-start;
   }
 
-  /* A5 Standardgröße */
-  .pdf-wrapper {
-    width: 148mm;
-    max-height: 210mm;
-    transform-origin: top center;
-    margin: 0 auto;
-    page-break-inside: avoid;
-    transition: all 0.3s ease;
-  }
-
-  /* 🖨️ Automatische Skalierung für A4 */
-  @media print {
-    body {
-      justify-content: center;
-      align-items: flex-start; /* bleibt oben */
-    }
-
-    @media (min-width: 200mm) {
-      .pdf-wrapper {
-        transform: scale(1.42);
-        margin-top: -25mm; /* ⬅ schiebt den Inhalt nach oben */
-      }
-    }
-  }
-
-  /* 🧭 Vorschau-Anpassung (auch für Bildschirmansicht A4) */
-  @media screen and (min-width: 800px) {
-    .pdf-wrapper {
-      transform: scale(1.35);
-      transform-origin: top center;
-      margin-top: -20mm; /* ebenfalls leicht nach oben */
-    }
-  }
+.pdf-wrapper {
+  width: 190mm;
+  height: auto;
+  min-height: unset;
+  margin: 0 auto;
+  display: block;              /* ✅ kein Flex mehr – verhindert Überlauf */
+  transform-origin: top center;
+  overflow: hidden;            /* ✅ verhindert Ghost-Overflow */
+  page-break-after: avoid;
+  break-after: avoid;
+}
 
 
-    
-
-  /* Kopfbereich im dynamischen 2-Spalten-Layout */
+  /* ---------- Kopfbereich ---------- */
   .hdr {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: flex-start;
-    margin-bottom: 6px;
-  }
-
-  .left-date {
     display: flex;
+    justify-content: space-between;
     align-items: flex-end;
-    gap: 8px;
+    margin-bottom: 2mm;
   }
+  .left-date { display: flex; align-items: flex-end; gap: 8px; }
+  .m { color: #3b82f6; font-size: 15px; font-weight: 700; }
+  .y { font-size: 9.5px; color: #555; margin-left: 5px; }
+  .d { font-size: 50px; color: #b45309; font-weight: 800; line-height: .9; }
+  .wd { font-size: 13px; font-weight: 700; margin-left: 4px; }
 
-  .date-block {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    line-height: 1;
-  }
-
-  .m {
-    color: #3b82f6;
-    font-size: 18px;
-    font-weight: 700;
-    text-transform: capitalize;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 4px;
-  }
-
-  .y { font-size: 11px; color: #555; }
-  .d { font-size: 56px; color: #b45309; font-weight: 800; line-height: .9; margin-top: -4px; }
-  .wd { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-
-  /* Tätigkeit & Leitung dynamisch positioniert */
   .taskhead {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
     text-align: center;
-    margin-top: 0;
+    margin: 0 4mm 2mm;
   }
-
-  /* Standard: über Fahrzeuge-Spalte (rechte Seite) */
-  .taskhead.right {
-    align-items: center;
-    justify-self: center;
-  }
-
-  /* Sonderfall Hof → mittig über gesamter Seite */
-  .taskhead.center {
-    grid-column: 1 / span 2;
-    align-items: center;
-    justify-self: center;
-    margin-top: 4px;
-  }
-
   .taetigkeit {
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 800;
     color: #b45309;
-    line-height: 1.1;
   }
-
   .leiter {
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 500;
-    color: #000;
-    margin-top: 2px;
+    color: #111;
+    margin-top: 1px;
   }
 
+  /* ---------- Sektionen ---------- */
+  h2 {
+    color: #3b82f6;
+    border-bottom: 1.2px solid #3b82f6;
+    margin: 4px 0 2px;
+    font-size: 11px;
+  }
 
+  /* ---------- Boxen ---------- */
+  .box {
+    background: #f8fafc;
+    border: 1px solid #d0d6dc;
+    border-radius: 4px;
+    padding: 3px 4px;
+    margin-bottom: 1.8mm;
+  }
 
-    /* --- Layout danach --- */
-    .two-cols {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      align-items: start;
-      margin-top: 2mm;
+  /* ---------- Meisterei & Fahrzeuge nebeneinander ---------- */
+  .grid2-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+  }
+  .grid2-inner > div {
+    flex: 1;
+    page-break-inside: avoid;
+  }
+
+/* ---------- Aufgaben zweispaltig ---------- */
+.task-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2mm;
+  margin-top: 2mm;
+}
+
+.task {
+  background: #f8fafc;
+  border: 1px solid #d0d6dc;
+  border-radius: 4px;
+  padding: 3px 4px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  overflow: visible !important;
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+/* ---------- A5 kompakter ---------- */
+@media print and (max-width: 170mm) {
+  .task-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.6mm;
+  }
+  .task {
+    font-size: 8.6px;
+    padding: 2.2px 3px;
+  }
+}
+
+  /* ---------- Automatische Seitenaufteilung ---------- */
+  .page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* ---------- Schriftgrößen ---------- */
+  body, .box { font-size: 10px; }
+
+  /* ---------- A5-Optimierung (15 Kästchen pro Seite) ---------- */
+  @media print and (max-width: 170mm) {
+    @page {
+      size: A5 portrait;
+      margin: 4mm 5mm 4mm 5mm;
     }
 
-    h2 {
-      color: #3b82f6;
-      border-bottom: 1.6px solid #3b82f6;
-      margin: 6px 0 3px;
-      font-size: 13px;
+    html, body {
+      font-size: 8.7px;
+      height: auto !important;
+      overflow: visible !important;
+    }
+
+.pdf-wrapper {
+  width: 148mm;
+  height: auto;
+  min-height: unset;
+  transform: none;
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;           /* ✅ hinzufügen */
+  page-break-after: avoid;    /* ✅ hinzufügen */
+}
+
+
+    .task {
+      margin-bottom: 1.2mm;
+      padding: 2px 3px;
+      line-height: 1.05;
     }
 
     .box {
-      background: #f8fafc;
-      border: 1px solid #cfd4da;
-      border-radius: 5px;
-      padding: 5px;
-      margin-bottom: 4px;
+      padding: 2.8px;
+      margin-bottom: 1.5mm;
     }
 
-    .muted { color: #555; }
+    .m { font-size: 12px; }
+    .y { font-size: 8px; }
+    .d { font-size: 40px; }
+    .wd { font-size: 10px; }
+    .taetigkeit { font-size: 15px; }
+    .leiter { font-size: 9.5px; }
+    h2 { font-size: 9.5px; }
+    .grid2-inner { gap: 4px; }
+  }
 
-    .rowline {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 6px 10px;
+  /* ---------- Vorschau ---------- */
+  @media screen and (min-width: 800px) {
+    .pdf-wrapper {
+      transform: scale(0.9);
+      transform-origin: top center;
     }
-
-    .task {
-      break-inside: avoid-page;
-      page-break-inside: avoid;
-      margin-bottom: 4px;
-    }
-
-    body, .box { font-size: 11px; }
-  `;
+  }
+`;
 
 
+// 📄 HTML mit automatischer Seitenteilung + Kopf auf Seite 2
+const tasksPerPage = window.matchMedia("(max-width: 170mm)").matches ? 18 : 30;
 
-const html = `
-<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Tagesbericht</title>
-<style>${compactCSS}</style></head><body>
-  <div class="pdf-wrapper">
+
+function splitIntoPages(tasks, tasksPerPage) {
+  const pages = [];
+  for (let i = 0; i < tasks.length; i += tasksPerPage) {
+    pages.push(tasks.slice(i, i + tasksPerPage));
+  }
+  return pages;
+}
+
+const pages = splitIntoPages(tasks, tasksPerPage);
+
+const pageHTML = pages.map((pageTasks, i) => `
+  <div class="pdf-page ${i > 0 ? "page-break" : ""}">
+    <!-- Kopfbereich (auf jeder Seite gleich) -->
     <div class="hdr">
-    <div class="left-date">
-      <div class="date-block">
-        <div class="m">${month}<span class="y"> ${year}</span></div>
-        <div class="d">${day}</div>
+      <div class="left-date">
+        <div class="date-block">
+          <div class="m">${month}<span class="y"> ${year}</span></div>
+          <div class="d">${day}</div>
+        </div>
+        <div class="wd">${wday}</div>
       </div>
-      <div class="wd">${wday}</div>
+      <div class="taskhead">
+        <div class="taetigkeit">${taetigkeit}</div>
+        <div class="leiter">${leiter}</div>
+      </div>
     </div>
-    <div class="taskhead">
-      <div class="taetigkeit">${taetigkeit}</div>
-      <div class="leiter">${leiter}</div>
-    </div>
-  </div>
 
-  <div class="two-cols">
-    <div class="col">
-      <h2>Meisterei & Daten</h2>
-      <div class="box">
-        <b>Meisterei:</b> ${S.meisterei || "-"}<br>
-        ${(S.meisterei === "SM Berenbostel" && S.taetigkeit !== "Hof") ? `<b>Bezirk:</b> ${S.bezirk || "-"}<br>` : ""}
-        <b>Temperatur:</b> ${S.temperatur || "-"} °C
+    <div class="grid2">
+      <div class="grid2-inner">
+        <div>
+          <h2>Meisterei & Daten</h2>
+          <div class="box">
+            <b>Meisterei:</b> ${S.meisterei || "-"}<br>
+            ${(S.meisterei === "SM Berenbostel" && S.taetigkeit !== "Hof")
+              ? `<b>Bezirk:</b> ${S.bezirk || "-"}<br>` : ""}
+            <b>Temperatur:</b> ${S.temperatur || "-"} °C
+          </div>
+        </div>
+        <div>
+          ${(S.meisterei === "SM Berenbostel" && S.taetigkeit !== "Hof")
+            ? `
+              <h2>Fahrzeuge</h2>
+              <div class="box"><b>${prim}</b> – ${primRole}</div>
+              ${wechsel.map(w =>
+                `<div class="box"><b>${w.f}</b> – ${w.r} <span class="muted">(Wechsel)</span></div>`
+              ).join("")}
+            `
+            : ""}
+        </div>
       </div>
     </div>
-    <div class="col">
-      <h2>Fahrzeuge</h2>
-      <div class="box"><b>${prim}</b> – ${primRole}</div>
-      ${wechsel.map(w => `
-        <div class="box"><b>${w.f}</b> – ${w.r} <span class="muted">(Wechsel)</span></div>
+
+    <h2>Aufgaben</h2>
+    <div class="task-container">
+      ${pageTasks.map(t => `
+        <div class="box task">
+          <b>${t.title || "Aufgabe"}</b><br>
+          ${S.taetigkeit === "Hof"
+            ? `<div class="muted">${t.info || "-"}</div>`
+            : `
+              <div class="rowline">
+                <span><b>Straße:</b> ${t.street || "-"}</span>
+                <span><b>Abschnitt:</b> ${t.section || "-"}</span>
+                <span><b>Station:</b> ${t.station || "-"}</span>
+                <span><b>RSA:</b> ${t.rsa || "-"}</span>
+              </div>
+              <div class="muted" style="margin-top:3px;">${t.info || "-"}</div>
+            `}
+        </div>
       `).join("")}
     </div>
   </div>
+`).join("");
 
-  <h2>Aufgaben</h2>
-  ${tasks.length ? tasks.map(t => `
-    <div class="box task">
-      <b>${t.title || "Aufgabe"}</b><br>
-      ${S.taetigkeit === "Hof" ? `
-        <div class="muted">${t.info || "-"}</div>
-      ` : `
-        <div class="rowline">
-          <span><b>Straße:</b> ${t.street || "-"}</span>
-          <span><b>Abschnitt:</b> ${t.section || "-"}</span>
-          <span><b>Station:</b> ${t.station || "-"}</span>
-          <span><b>RSA:</b> ${t.rsa || "-"}</span>
-        </div>
-        <div class="muted" style="margin-top:3px;">${t.info || "-"}</div>
-      `}
-    </div>
-  `).join("") : `<div class="box">Noch keine Aufgaben erfasst.</div>`}
-      </div> <!-- end pdf-wrapper -->
+
+const html = `
+<!doctype html><html lang="de"><head><meta charset="utf-8">
+<title>Tagesbericht</title>
+<style>${compactCSS}</style></head><body>
+  <div class="pdf-wrapper">
+    ${pageHTML}
+  </div>
 </body></html>`.trim();
 
   // PDF-Fenster öffnen
@@ -889,6 +940,7 @@ const html = `
       window.focus();
     }
   }, 300);
+
 }
 
   /* ---------- kleine UI-Helfer ---------- */
