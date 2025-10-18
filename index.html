@@ -1,125 +1,190 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Straßenwärter Tool</title>
-<link rel="icon" type="image/png" href="assets/favicon-96x96.png" sizes="96x96">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="shortcut icon" href="assets/favicon.ico">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-<meta name="apple-mobile-web-app-title" content="Strw-Tool">
-<link rel="manifest" href="assets/site.webmanifest">
-<meta name="theme-color" content="#1f2937">
-  <link rel="stylesheet" href="styles/report.css">
-  <link rel="stylesheet" href="styles/projectdoc.css">
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Straßenwärter Tool</title>
 
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" href="assets/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="shortcut icon" href="assets/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="Strw-Tool" />
+  <link rel="manifest" href="assets/site.webmanifest" />
+  <meta name="theme-color" content="#1f2937" />
 
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles/index.css" />
+  <link rel="stylesheet" href="styles/dashboard.css" />
+  <link rel="stylesheet" href="styles/report.css" />
+  <link rel="stylesheet" href="styles/projectdoc.css" />
+  <link rel="stylesheet" href="styles/auth.css" />
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Splash Animation -->
   <style>
-    body.auth-locked { overflow: hidden; }
-    #loginOverlay {
-      position: fixed; inset: 0;
-      background: radial-gradient(circle at 20% 20%, rgba(15,23,42,.9), rgba(2,6,23,.96));
-      -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
-      display: none; place-items: center; z-index: 99999;
+    .splash-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(15,23,42,0.95), rgba(2,6,23,0.98));
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      z-index: 9999;
+      animation: fadeIn 0.8s ease-out forwards;
+      overflow: hidden;
     }
-    #loginOverlay.active { display: grid; }
-    .login-card {
-      width: min(420px, 92vw); border-radius: 18px; padding: 1.25rem 1.35rem;
-      background: linear-gradient(135deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
-      border: 1px solid rgba(255,255,255,.18); box-shadow: 0 20px 60px rgba(0,0,0,.5); color: #fff;
-    }
-    .login-card h2 { margin: 0 0 .25rem; font-size: 1.35rem; }
-    .login-card p  { margin: 0 0 .75rem; color: #cbd5e1; }
-    .login-field { margin: .6rem 0; }
-    .login-field label { display:block; font-weight:600; margin-bottom:.35rem; color:#cbd5e1; }
-    .login-field input {
-      width: 100%; padding:.65rem .8rem; border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.22);
-      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.08));
-      color: #fff; outline: none;
-    }
-    .login-actions { display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin-top:.75rem; }
-    .btn { 
-      position: relative; display:inline-flex; align-items:center; justify-content:center;
-      gap:.5rem; padding:.65rem 1rem; border-radius:12px; border:1px solid rgba(255,255,255,.14);
-      color:#fff; font-weight:700; background: linear-gradient(120deg, rgba(249,115,22,.95), rgba(59,130,246,.95));
-      cursor:pointer; user-select:none;
-    }
-    .btn:hover { filter: saturate(1.08); transform: translateY(-1px); }
-    .btn.secondary { background: linear-gradient(120deg, rgba(59,130,246,.95), rgba(34,211,238,.95)); }
-    .login-small { display:flex; align-items:center; gap:.45rem; color:#cbd5e1; font-size:.9rem; }
-    .login-error { margin-top:.65rem; color:#fecaca; min-height:1.2em; }
 
-    #app { display:none; }
-    #app.ready { display:block; }
+    .splash-logo {
+      width: 120px;
+      opacity: 0;
+      transform: scale(0.7);
+      animation: logoZoom 4s cubic-bezier(0.55, 0.08, 0.32, 1.28) forwards;
+    }
 
-    #splash { display:none; }
-    #splash.active { display:flex; }
+    .splash-screen h1 {
+      font-size: 1.5rem;
+      margin-top: 1rem;
+      opacity: 0;
+      animation: textFade 1.6s ease forwards 1.2s;
+    }
+
+    .splash-screen p {
+      color: #93c5fd;
+      opacity: 0;
+      animation: textFade 1.6s ease forwards 1.8s;
+    }
+
+    @keyframes logoZoom {
+      0% { opacity: 0; transform: scale(0.7); }
+      40% { opacity: 1; transform: scale(0.9); }
+      70% { transform: scale(1.08); }
+      100% { opacity: 1; transform: scale(1.15); }
+    }
+
+    @keyframes textFade {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; visibility: hidden; }
+    }
+
+    .splash-screen.hide {
+      animation: fadeOut 1.6s ease forwards;
+    }
   </style>
 </head>
+
 <body class="auth-locked">
+  <!-- === SPLASH SCREEN === -->
+  <div id="splash" class="splash-screen">
+    <img src="assets/logo.png" alt="Logo Straßenwärter Tool" class="splash-logo" />
+    <h1>Straßenwärter Tool</h1>
+    <p>das digitale Tool für Straßenwärter</p>
+  </div>
+
+  <!-- === LOGIN === -->
   <div id="loginOverlay" class="active" aria-modal="true" role="dialog" aria-label="Anmeldung erforderlich">
     <div class="login-card" role="document">
       <h2>🔒 Anmelden</h2>
       <p>Zugriff nur für autorisierte Benutzer.</p>
+
       <div class="login-field">
         <label for="loginUser">Benutzername</label>
-        <input id="loginUser" autocomplete="username" inputmode="email" placeholder="Benutzername">
+        <input id="loginUser" autocomplete="username" placeholder="Benutzername" />
       </div>
+
       <div class="login-field">
         <label for="loginPass">Passwort</label>
-        <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort">
+        <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" />
       </div>
+
       <div class="login-actions">
-        <label class="login-small"><input type="checkbox" id="rememberMe"> auf diesem Gerät merken</label>
+        <label class="login-small"><input type="checkbox" id="rememberMe" /> auf diesem Gerät merken</label>
         <div><button id="loginBtn" class="btn">Anmelden</button></div>
       </div>
+
       <div id="loginError" class="login-error" aria-live="polite"></div>
     </div>
   </div>
 
+  <!-- === APP === -->
   <div id="app" aria-hidden="true">
-    <div id="splash">
-      <div class="splash-inner">
-        <img src="assets/logo.png" alt="Logo Straßenwärter Tool" class="splash-logo">
+    <div class="top-logo">
+      <img src="assets/logo.png" alt="Logo Straßenwärter Tool" />
+      <div class="top-logo-text">
         <h1>Straßenwärter Tool</h1>
         <p>das digitale Tool für Straßenwärter</p>
       </div>
     </div>
 
-    <header>
-      <div class="logo-area">
-        <img src="assets/logo.png" alt="Straßenwärter Tool">
-        <div class="titlebox">
-          <h1>Straßenwärter Tool</h1>
-          <p>das digitale Tool für Straßenwärter</p>
-        </div>
+    <!-- NAVIGATION -->
+    <nav id="mainNav">
+      <div class="nav-container">
+        <button id="mobileNavToggle" class="mobile-nav-toggle" aria-label="Menü öffnen">☰</button>
+        <ul class="nav-menu" id="navMenu">
+          <li class="nav-item">
+            <a href="#" data-tab="dashboard" class="active">🏠 Dashboard</a>
+            <div class="dropdown">
+              <a href="#" data-tab="rsa">🚧 RSA</a>
+              <a href="#" data-tab="signs">🚦 Schilderwald</a>
+              <a href="#" data-tab="infos">ℹ️ Informationen</a>
+            </div>
+          </li>
+          <li class="nav-item">
+            <a href="#">🧮 Rechner</a>
+            <div class="dropdown">
+              <a href="#" data-tab="calc">📏 Rechnungen Arbeitsalltag</a>
+              <a href="#" data-tab="worktime">🕓 Arbeitszeitrechner</a>
+              <a href="#" data-tab="schoolcalc">🏫 Rechnungen Schule</a>
+              <a href="#" data-tab="winter">❄️ Winterdienst</a>
+            </div>
+          </li>
+          <li class="nav-item">
+            <a href="#">🧾 Berichte</a>
+            <div class="dropdown">
+              <a href="#" data-tab="report">📘 Tagesbericht</a>
+              <a href="#" data-tab="ausbildungsnachweis">📚 Ausbildungsnachweis</a>
+              <a href="#" data-tab="arp">🧾 ARP-Nummern</a>
+              <a href="#" data-tab="projectdoc">📋 Projektdokumentation</a>
+              <a href="#" data-tab="maengel">🚨 Mängelmeldung</a>
+            </div>
+          </li>
+          <li class="nav-item">
+            <a href="#">📂 Wissensbox</a>
+            <div class="dropdown">
+              <a href="#" data-tab="roterordner">📕 Roter Ordner</a>
+              <a href="#" data-tab="schildhoehen">📏 Schilderhöhen & Abstände</a>
+              <a href="#" data-tab="schule">🏫 Schule</a>
+            </div>
+          </li>
+          <li class="nav-item">
+            <a href="#">⚙️ Einstellungen</a>
+            <div class="dropdown">
+              <a href="#" data-tab="settings">🔧 Einstellungen</a>
+              <a href="#" id="logoutBtn">🚪 Abmelden</a>
+            </div>
+          </li>
+        </ul>
       </div>
-    </header>
-
-    <nav>
-      <button data-tab="dashboard" class="active">🏠 Dashboard</button>
-      <button data-tab="calc">📏 Rechnungen</button>
-      <button data-tab="kmcalc">🚗Kilometerrechner</button>
-      <button data-tab="worktime">🕓 Arbeitszeiten</button>
-      <button data-tab="rsa">🚧 RSA</button>
-      <button data-tab="signs">🚦 Schilderwald</button>
-      <button data-tab="winter">❄️ Winterdienst</button>
-      <button data-tab="report">🧾 Tagesbericht</button>
-      <button data-tab="ausbildungsnachweis">📚 Ausbildungsnachweis</button>
-      <button data-tab="projectdoc">📘 Projektdokumentation</button>
-      <button data-tab="settings">⚙️ Einstellungen</button>
     </nav>
 
     <main id="mainContent"></main>
-
-    <footer>
-      <small>© 2025 Straßenwärter-Helfer</small>
-    </footer>
+    <footer><small>© 2025 Straßenwärter-Helfer</small></footer>
   </div>
 
+  <!-- === AUTH CONFIG === -->
   <script>
     window.__AUTH_CONF__ = {
       saltHex: "3f1c8e6a4b9d2f11aabbccdd33445566",
@@ -127,10 +192,10 @@
       derivedB64: "W7QCePmG2MCDRpOgJSjnqGTWa/yyMlKw7Snuh2AfzHo="
     };
   </script>
+
+  <!-- === MODULE === -->
   <script src="scripts/auth.js"></script>
   <script src="scripts/main.js"></script>
-
-  <!-- Deine bestehenden Module -->
   <script src="scripts/dashboard.js"></script>
   <script src="scripts/worktime.js"></script>
   <script src="scripts/calc.js"></script>
@@ -142,5 +207,86 @@
   <script src="scripts/ausbildungsnachweis.js"></script>
   <script src="scripts/projectdoc.js"></script>
   <script src="scripts/settings.js"></script>
+
+  <!-- === NAVIGATION + MOBILE MENU === -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const splash = document.getElementById("splash");
+      const mobileToggle = document.getElementById("mobileNavToggle");
+      const navMenu = document.getElementById("navMenu");
+      const logoutBtn = document.getElementById("logoutBtn");
+
+      /* --- Splash Fade --- */
+      setTimeout(() => splash?.classList.add("hide"), 4000);
+
+      /* --- Hilfsfunktion zum Schließen --- */
+      const closeMenu = () => {
+        navMenu.classList.remove("show");
+        document.body.classList.remove("menu-open");
+        mobileToggle.textContent = "☰";
+      };
+
+      /* --- Mobile Menü öffnen/schließen --- */
+      mobileToggle.addEventListener("click", () => {
+        const isOpen = navMenu.classList.toggle("show");
+        document.body.classList.toggle("menu-open", isOpen);
+        mobileToggle.textContent = isOpen ? "✕" : "☰";
+      });
+
+      /* --- Unterpunkte mobil ausklappbar --- */
+      document.querySelectorAll(".nav-item > a:not([data-tab])").forEach(topLink => {
+        topLink.addEventListener("click", e => {
+          if (window.innerWidth <= 850) {
+            e.preventDefault();
+            topLink.parentElement.classList.toggle("open");
+          }
+        });
+      });
+
+      /* --- Klick auf Menüpunkt (mit data-tab) --- */
+      document.querySelectorAll(".nav-menu a[data-tab]").forEach(link => {
+        link.addEventListener("click", e => {
+          e.preventDefault();
+
+          document.querySelectorAll(".nav-menu a.active").forEach(a => a.classList.remove("active"));
+          link.classList.add("active");
+
+          const tab = link.dataset.tab;
+          if (typeof loadTab === "function") {
+            loadTab(tab);
+          } else {
+            document.getElementById("mainContent").innerHTML =
+              `<div style='padding:2rem;text-align:center;color:#fff;'>
+                <h2>${tab}</h2><p>Inhalt wird geladen...</p></div>`;
+          }
+
+          /* Menü automatisch schließen auf Mobile */
+          if (window.innerWidth <= 850) closeMenu();
+        });
+      });
+
+      /* --- Logout-Effekt --- */
+      logoutBtn.addEventListener("click", e => {
+        e.preventDefault();
+        console.log("🔒 Abmeldung ausgelöst");
+        if (window.Auth) window.Auth.clearSession();
+
+        splash.classList.remove("hide");
+        splash.style.display = "flex";
+
+        splash.querySelector(".splash-logo").style.animation = "none";
+        void splash.offsetWidth;
+        splash.querySelector(".splash-logo").style.animation =
+          "logoZoom 4s cubic-bezier(0.55, 0.08, 0.32, 1.28) forwards";
+
+        setTimeout(() => {
+          splash.classList.add("hide");
+          document.getElementById("loginOverlay").classList.add("active");
+          document.body.classList.add("auth-locked");
+          document.getElementById("app").classList.remove("ready");
+        }, 4200);
+      });
+    });
+  </script>
 </body>
 </html>
