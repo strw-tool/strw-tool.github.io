@@ -1,0 +1,255 @@
+/* ===========================
+   🎨 STRASSENWÄRTER TOOL UI
+   Modern Glass / Sticky Navbar / Mobile Blur
+   =========================== */
+
+/* --- Grundfarben --- */
+:root {
+  --nav-bg: rgba(15, 23, 42, 0.92);
+  --nav-border: rgba(255, 255, 255, 0.08);
+  --nav-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+  --active-blue: linear-gradient(120deg, rgba(37, 99, 235, 0.9), rgba(59, 130, 246, 0.9));
+  --text-light: #e2e8f0;
+  --hover-bright: #fff;
+  --blur-bg: rgba(15, 23, 42, 0.96);
+  --overlay-bg: rgba(0, 0, 0, 0.55);
+}
+
+/* ===========================
+   HEADER + LOGO
+   =========================== */
+.top-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--nav-bg);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--nav-border);
+  box-shadow: var(--nav-shadow);
+  border-radius: 0 0 18px 18px;
+  padding: 1rem;
+  color: #fff;
+}
+
+.top-logo img {
+  width: 85px;
+  height: auto;
+  margin-right: 1rem;
+  filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.4));
+}
+
+.top-logo-text h1 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.top-logo-text p {
+  font-size: 0.9rem;
+  color: #93c5fd;
+  margin: 0;
+}
+
+/* ===========================
+   NAVIGATION (DESKTOP)
+   =========================== */
+#mainNav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--nav-bg);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--nav-border);
+  box-shadow: var(--nav-shadow);
+  border-radius: 0 0 18px 18px;
+}
+
+.nav-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+}
+
+.nav-menu {
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-menu a {
+  color: var(--text-light);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.4rem 0.7rem;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.nav-menu a:hover {
+  color: var(--hover-bright);
+}
+
+/* --- Active State --- */
+.nav-menu a.active {
+  background: var(--active-blue);
+  color: #fff !important;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.35);
+}
+
+/* --- Dropdowns (Desktop) --- */
+.dropdown {
+  display: none;
+  position: absolute;
+  flex-direction: column;
+  background: var(--blur-bg);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 0.5rem;
+  top: 2.2rem;
+  left: 0;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+.nav-item:hover > .dropdown {
+  display: flex;
+}
+
+.dropdown a {
+  padding: 0.5rem 0.8rem;
+  color: #dbeafe;
+  border-radius: 8px;
+}
+
+.dropdown a:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: #fff;
+}
+
+/* ===========================
+   MOBILE NAVIGATION
+   =========================== */
+.mobile-nav-toggle {
+  display: none;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 1.7rem;
+  border-radius: 12px;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mobile-nav-toggle:hover {
+  background: rgba(59, 130, 246, 0.25);
+  transform: scale(1.05);
+}
+
+/* --- Hintergrund Overlay beim Menü --- */
+body.menu-open::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(4px);
+  z-index: 45;
+  animation: fadeInOverlay 0.3s ease forwards;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* --- Mobile Menü selbst --- */
+@media (max-width: 850px) {
+  .mobile-nav-toggle {
+    display: block;
+    position: fixed;
+    top: 0.8rem;
+    right: 1rem;
+    z-index: 120;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  }
+
+  .nav-container {
+    justify-content: flex-end;
+  }
+
+  .nav-menu {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    background: var(--blur-bg);
+    border-radius: 18px;
+    backdrop-filter: blur(14px);
+    padding: 1rem;
+    position: fixed;
+    right: 0.75rem;
+    top: 4.3rem;
+    width: 82vw;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+    animation: slideDown 0.4s ease forwards;
+    overflow-y: auto;
+    max-height: 75vh;
+    z-index: 110;
+  }
+
+  .nav-menu.show {
+    display: flex;
+  }
+
+  .nav-item {
+    width: 100%;
+  }
+
+  .nav-item > a {
+    display: block;
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    margin-bottom: 0.25rem;
+  }
+
+  .nav-item > a:hover {
+    background: rgba(59, 130, 246, 0.15);
+  }
+
+  /* Dropdown mobil */
+  .dropdown {
+    display: none;
+    flex-direction: column;
+    position: relative;
+    background: none;
+    box-shadow: none;
+    padding-left: 1.2rem;
+    padding-top: 0.3rem;
+  }
+
+  .nav-item.open .dropdown {
+    display: flex;
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ===========================
+   FOOTER
+   =========================== */
+footer {
+  text-align: center;
+  padding: 1rem;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
