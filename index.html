@@ -289,5 +289,48 @@
       });
     });
   </script>
+
+<script>
+window.addEventListener("load", () => {
+  const loginBtn = document.getElementById("loginBtn");
+  const loginUser = document.getElementById("loginUser");
+  const loginPass = document.getElementById("loginPass");
+  const rememberMe = document.getElementById("rememberMe");
+  const loginError = document.getElementById("loginError");
+
+  if (!loginBtn) return;
+
+  loginBtn.addEventListener("click", async () => {
+    loginError.textContent = "";
+    loginBtn.disabled = true;
+    try {
+      const { ok, reason } = await window.Auth.login({
+        username: loginUser.value,
+        password: loginPass.value,
+        remember: rememberMe.checked
+      });
+      if (!ok) {
+        loginError.textContent = reason || "Login fehlgeschlagen.";
+        loginBtn.disabled = false;
+        return;
+      }
+
+      document.getElementById("loginOverlay").classList.remove("active");
+      document.body.classList.remove("auth-locked");
+      document.getElementById("app").classList.add("ready");
+      document.getElementById("app").setAttribute("aria-hidden", "false");
+      if (typeof loadDashboard === "function") loadDashboard();
+
+    } catch (err) {
+      console.error(err);
+      loginError.textContent = "Es gab ein Problem beim Login.";
+    } finally {
+      loginBtn.disabled = false;
+    }
+  });
+});
+</script>
+
+
 </body>
 </html>
