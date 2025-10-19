@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="styles/projectdoc.css" />
   <link rel="stylesheet" href="styles/auth.css" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles/arp.css" /> <!-- ✅ ARP Styles -->
 
   <!-- Splash Animation -->
   <style>
@@ -37,52 +38,38 @@
       animation: fadeIn 0.8s ease-out forwards;
       overflow: hidden;
     }
-
     .splash-logo {
       width: 120px;
       opacity: 0;
       transform: scale(0.7);
       animation: logoZoom 4s cubic-bezier(0.55, 0.08, 0.32, 1.28) forwards;
     }
-
     .splash-screen h1 {
       font-size: 1.5rem;
       margin-top: 1rem;
       opacity: 0;
       animation: textFade 1.6s ease forwards 1.2s;
     }
-
     .splash-screen p {
       color: #93c5fd;
       opacity: 0;
       animation: textFade 1.6s ease forwards 1.8s;
     }
-
     @keyframes logoZoom {
       0% { opacity: 0; transform: scale(0.7); }
       40% { opacity: 1; transform: scale(0.9); }
       70% { transform: scale(1.08); }
       100% { opacity: 1; transform: scale(1.15); }
     }
-
     @keyframes textFade {
       0% { opacity: 0; transform: translateY(10px); }
       100% { opacity: 1; transform: translateY(0); }
     }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
     @keyframes fadeOut {
       from { opacity: 1; }
       to { opacity: 0; visibility: hidden; }
     }
-
-    .splash-screen.hide {
-      animation: fadeOut 1.6s ease forwards;
-    }
+    .splash-screen.hide { animation: fadeOut 1.6s ease forwards; }
   </style>
 </head>
 
@@ -99,22 +86,18 @@
     <div class="login-card" role="document">
       <h2>🔒 Anmelden</h2>
       <p>Zugriff nur für autorisierte Benutzer.</p>
-
       <div class="login-field">
         <label for="loginUser">Benutzername</label>
         <input id="loginUser" autocomplete="username" placeholder="Benutzername" />
       </div>
-
       <div class="login-field">
         <label for="loginPass">Passwort</label>
         <input id="loginPass" type="password" autocomplete="current-password" placeholder="Passwort" />
       </div>
-
       <div class="login-actions">
         <label class="login-small"><input type="checkbox" id="rememberMe" /> auf diesem Gerät merken</label>
         <div><button id="loginBtn" class="btn">Anmelden</button></div>
       </div>
-
       <div id="loginError" class="login-error" aria-live="polite"></div>
     </div>
   </div>
@@ -129,7 +112,7 @@
       </div>
     </div>
 
-    <!-- NAVIGATION -->
+    <!-- === NAVIGATION === -->
     <nav id="mainNav">
       <div class="nav-container">
         <button id="mobileNavToggle" class="mobile-nav-toggle" aria-label="Menü öffnen">☰</button>
@@ -205,88 +188,84 @@
   <script src="scripts/winter.js"></script>
   <script src="scripts/report.js"></script>
   <script src="scripts/ausbildungsnachweis.js"></script>
+  <script src="scripts/arp.js"></script>
   <script src="scripts/projectdoc.js"></script>
   <script src="scripts/settings.js"></script>
 
-  <!-- === NAVIGATION + MOBILE MENU === -->
+  <!-- === NAVIGATION & MENU HANDLING === -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const splash = document.getElementById("splash");
-      const mobileToggle = document.getElementById("mobileNavToggle");
-      const navMenu = document.getElementById("navMenu");
-      const logoutBtn = document.getElementById("logoutBtn");
-
-      /* --- Splash Fade --- */
       setTimeout(() => splash?.classList.add("hide"), 4000);
 
-      /* --- Hilfsfunktion zum Schließen --- */
-      const closeMenu = () => {
-        navMenu.classList.remove("show");
-        document.body.classList.remove("menu-open");
-        mobileToggle.textContent = "☰";
-      };
-
-      /* --- Mobile Menü öffnen/schließen --- */
-      mobileToggle.addEventListener("click", () => {
-        const isOpen = navMenu.classList.toggle("show");
-        document.body.classList.toggle("menu-open", isOpen);
-        mobileToggle.textContent = isOpen ? "✕" : "☰";
-      });
-
-      /* --- Unterpunkte mobil ausklappbar --- */
-      document.querySelectorAll(".nav-item > a:not([data-tab])").forEach(topLink => {
-        topLink.addEventListener("click", e => {
-          if (window.innerWidth <= 850) {
-            e.preventDefault();
-            topLink.parentElement.classList.toggle("open");
+      // --- Dropdown Hover ---
+      document.querySelectorAll(".nav-item").forEach(item => {
+        let hideTimeout;
+        item.addEventListener("mouseenter", () => {
+          clearTimeout(hideTimeout);
+          const dropdown = item.querySelector(".dropdown");
+          if (dropdown) {
+            dropdown.style.display = "flex";
+            requestAnimationFrame(() => {
+              dropdown.style.opacity = "1";
+              dropdown.style.pointerEvents = "auto";
+              dropdown.style.transform = "translateY(0)";
+            });
+          }
+        });
+        item.addEventListener("mouseleave", () => {
+          const dropdown = item.querySelector(".dropdown");
+          if (dropdown) {
+            hideTimeout = setTimeout(() => {
+              dropdown.style.opacity = "0";
+              dropdown.style.pointerEvents = "none";
+              dropdown.style.transform = "translateY(5px)";
+              setTimeout(() => (dropdown.style.display = "none"), 200);
+            }, 150);
           }
         });
       });
 
-      /* --- Klick auf Menüpunkt (mit data-tab) --- */
+      // --- Navigation Click Handling ---
       document.querySelectorAll(".nav-menu a[data-tab]").forEach(link => {
         link.addEventListener("click", e => {
           e.preventDefault();
-
           document.querySelectorAll(".nav-menu a.active").forEach(a => a.classList.remove("active"));
           link.classList.add("active");
-
           const tab = link.dataset.tab;
-          if (typeof loadTab === "function") {
-            loadTab(tab);
-          } else {
-            document.getElementById("mainContent").innerHTML =
-              `<div style='padding:2rem;text-align:center;color:#fff;'>
-                <h2>${tab}</h2><p>Inhalt wird geladen...</p></div>`;
-          }
-
-          /* Menü automatisch schließen auf Mobile */
-          if (window.innerWidth <= 850) closeMenu();
+          loadTab(tab);
         });
       });
-
-      /* --- Logout-Effekt --- */
-      logoutBtn.addEventListener("click", e => {
-        e.preventDefault();
-        console.log("🔒 Abmeldung ausgelöst");
-        if (window.Auth) window.Auth.clearSession();
-
-        splash.classList.remove("hide");
-        splash.style.display = "flex";
-
-        splash.querySelector(".splash-logo").style.animation = "none";
-        void splash.offsetWidth;
-        splash.querySelector(".splash-logo").style.animation =
-          "logoZoom 4s cubic-bezier(0.55, 0.08, 0.32, 1.28) forwards";
-
-        setTimeout(() => {
-          splash.classList.add("hide");
-          document.getElementById("loginOverlay").classList.add("active");
-          document.body.classList.add("auth-locked");
-          document.getElementById("app").classList.remove("ready");
-        }, 4200);
-      });
     });
+
+    // === TAB LOADER ===
+    function loadTab(tab) {
+      const main = document.getElementById("mainContent");
+      main.innerHTML = "<div style='padding:2rem;color:#fff;'>Lade Inhalt...</div>";
+
+      switch (tab) {
+        case "dashboard":
+          loadDashboard();
+          break;
+        case "report":
+          loadReport();
+          break;
+        case "ausbildungsnachweis":
+          loadAusbildungsnachweis();
+          break;
+        case "arp":
+          loadArp();
+          break;
+        case "projectdoc":
+          loadProjectDoc();
+          break;
+        case "settings":
+          loadSettings();
+          break;
+        default:
+          main.innerHTML = `<div style='padding:2rem;text-align:center;color:#fff;'><h2>${tab}</h2><p>Seite nicht gefunden.</p></div>`;
+      }
+    }
   </script>
 </body>
 </html>
