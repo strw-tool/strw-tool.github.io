@@ -105,6 +105,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         break;
 
+      // 🆕 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+      // ✅ NEU: ARP-Nummern Tab
+      case "arp":
+        if (typeof loadArp === "function") {
+          loadArp();
+        } else {
+          mainContent.innerHTML =
+            "<p style='text-align:center;color:#ccc;'>⚠️ Modul 'ARP' nicht gefunden oder nicht geladen.</p>";
+        }
+        break;
+      // 🆕 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
       default:
         typeof loadDashboard === "function" && loadDashboard();
     }
