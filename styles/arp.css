@@ -1,0 +1,66 @@
+.arp-container.dark {
+  color: #e5e5e5;
+  background: transparent;
+}
+
+.arp-container h2 {
+  font-size: 1.4rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.arp-container p {
+  color: #aaa;
+  margin-bottom: 1rem;
+}
+
+.arp-section {
+  margin-bottom: 1.2rem;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1e1e1e;
+  box-shadow: 0 0 6px rgba(0,0,0,0.3);
+}
+
+.arp-section h3 {
+  background: #007bff;
+  color: #fff;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+}
+
+.arp-table-wrapper {
+  overflow-x: auto;
+  max-height: 400px;
+}
+
+.arp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  color: #ddd;
+  background: #2a2a2a;
+}
+
+.arp-table thead {
+  position: sticky;
+  top: 0;
+  background: #333;
+  z-index: 1;
+}
+
+.arp-table th, .arp-table td {
+  border-bottom: 1px solid #444;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+
+.arp-table th {
+  color: #fff;
+  font-weight: 600;
+}
+
+.arp-table tr:hover td {
+  background: #383838;
+}
