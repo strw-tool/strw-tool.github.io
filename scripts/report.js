@@ -67,6 +67,7 @@ function createState(){
     leitung: "",
     datum: todayPretty(),
     temperatur: (Math.random()*10+10).toFixed(1),
+    arp: [], // gewählte ARP-Nummern
   };
 }
 
@@ -165,6 +166,23 @@ window.Tagesbericht = (function(){
     .rb-free{display:flex;gap:.4rem;margin-top:.5rem}
     .rb-right{text-align:right}
     .rb-mt{margin-top:.7rem}
+    .rb-json-wrap{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-end;align-items:center;}
+
+
+    .rb-arp-wrap{margin-top:.7rem;}
+    .rb-arp-list{display:flex;flex-direction:column;gap:.3rem;}
+    .rb-arp-row{display:flex;align-items:center;gap:.4rem;}
+    .rb-arp-row label{margin:0;font-weight:600;color:var(--text-light);}
+    .rb-arp-row select{
+      flex:1;
+      padding:.3rem .5rem;
+      border-radius:8px;
+      border:1px solid var(--border-light);
+      background:rgba(255,255,255,0.08);
+      color:var(--text-light);
+    }
+    .rb-arp-hint{margin-top:.2rem;font-size:.8rem;color:var(--text-muted);}
+
     .fade-in{animation:fade .18s ease-out}@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
     `;
     const tag = h("style",{id:"report-v10-css"},css);
@@ -266,11 +284,26 @@ function render(){
       </div>
     </div>
 
-    <div class="rb-right rb-mt">
-      <button id="rb-add-task" class="rb-btn">+ Aufgabe hinzufügen</button>
+    <!-- 🧾 ARP-Nummern (beliebig viele) -->
+    <div id="rb-arp-wrap" class="rb-arp-wrap">
+      <h3>📚 ARP-Nummern</h3>
+      <div id="rb-arp-list" class="rb-arp-list"></div>
+      <div class="rb-arp-hint">Hinweis: Im PDF werden nur die gewählten ARP-Nummern (z.B. 1a, 2b, …) angezeigt.</div>
     </div>
 
-    <button id="rb-pdf" class="rb-btn accent rb-mt">📄 PDF erstellen</button>
+    <div class="rb-right rb-mt">
+      <div class="rb-json-wrap">
+        <button id="rb-json-import" class="rb-btn small">📂 Tagesbericht laden</button>
+        <button id="rb-json-export" class="rb-btn small">💾 Tagesbericht exportieren</button>
+      </div>
+      <div class="rb-mt">
+        <button id="rb-add-task" class="rb-btn">+ Aufgabe hinzufügen</button>
+      </div>
+    </div>
+
+    <div class="rb-right rb-mt">
+      <button id="rb-pdf" class="rb-btn accent">📄 PDF erstellen</button>
+    </div>
   </section>`;
 
   // Aktionen initialisieren
@@ -280,6 +313,7 @@ function render(){
   renderBezirkButtons();
   renderVehicleSelectors();
   renderStreetButtons();
+  renderArpSelectors();
   bindGlobalButtons();
 }
 
@@ -605,6 +639,362 @@ function addVehicleBlock() {
     return b;
   }
 
+
+  /* ---------- 6) ARP-Nummern ---------- */
+  function getArpOptions(){
+    const src = (typeof arpSections !== "undefined" && Array.isArray(arpSections)) ? arpSections : [];
+    const list = [];
+    try{
+      (src || []).forEach(section => {
+        (section.items || []).forEach(item => {
+          if (item && item.nr && item.inhalt){
+            list.push({
+              nr: String(item.nr),
+              text: String(item.inhalt)
+            });
+          }
+        });
+      });
+    } catch(e){
+      console.warn("ARP-Daten konnten nicht gelesen werden:", e);
+    }
+    return list;
+  }
+
+  function syncArpState(){
+    const sels = $$("#rb-arp-list select");
+    S.arp = sels.map(s => s.value).filter(v => !!v);
+  }
+
+  function renderArpSelectors(){
+    const wrap = $("#rb-arp-wrap");
+    const listEl = $("#rb-arp-list");
+    if (!wrap || !listEl) return;
+
+    const options = getArpOptions();
+    if (!options.length){
+      wrap.classList.add("rb-hide");
+      return;
+    }
+    wrap.classList.remove("rb-hide");
+    listEl.innerHTML = "";
+
+    function createRow(selectedNr){
+      const row = h("div", { class: "rb-arp-row" });
+      const label = document.createElement("label");
+      label.textContent = "ARP:";
+      row.appendChild(label);
+
+      const sel = document.createElement("select");
+      sel.className = "rb-arp-select";
+
+      const emptyOpt = document.createElement("option");
+      emptyOpt.value = "";
+      emptyOpt.textContent = "– bitte wählen –";
+      sel.appendChild(emptyOpt);
+
+      options.forEach(o => {
+        const opt = document.createElement("option");
+        opt.value = o.nr;
+        opt.textContent = `${o.nr} – ${o.text}`;
+        sel.appendChild(opt);
+      });
+
+      if (selectedNr){
+        sel.value = selectedNr;
+      }
+
+      sel.addEventListener("change", () => {
+        syncArpState();
+        const sels = $$("#rb-arp-list select");
+        const hasEmpty = sels.some(s => !s.value);
+        const last = sels[sels.length - 1];
+        if (!hasEmpty && last && last.value){
+          createRow("");
+        }
+      });
+
+      row.appendChild(sel);
+      listEl.appendChild(row);
+    }
+
+    // vorhandene Auswahl wiederherstellen oder mit einer Zeile starten
+    if (Array.isArray(S.arp) && S.arp.length){
+      S.arp.forEach(nr => createRow(nr));
+      // letzte leere Zeile anbieten
+      createRow("");
+    } else {
+      createRow("");
+    }
+  }
+
+
+  /* ---------- JSON-Export / -Import ---------- */
+
+  function collectTasksForJson(){
+    return $$("#rb-tasklist .rb-task").map(t => ({
+      title: $(".t-title", t)?.value || "",
+      street: $(".t-street", t)?.value || "",
+      section: $(".t-section", t)?.value || "",
+      station: $(".t-station", t)?.value || "",
+      rsa: $(".t-rsa", t)?.value || "",
+      info: $(".t-info", t)?.value || "",
+    }));
+  }
+
+
+  function collectVehiclesForJson(){
+    // Hauptfahrzeug
+    const oRow = $("#rb-orange");
+    const dRow = $("#rb-dienst");
+    const mainRoleEl = document.querySelector('input[name="rb-rolle"]:checked');
+    const main = {
+      orange: oRow && oRow.dataset ? (oRow.dataset.sel || null) : null,
+      dienst: dRow && dRow.dataset ? (dRow.dataset.sel || null) : null,
+      role: mainRoleEl ? mainRoleEl.value : null,
+      rented: !!(document.querySelector("#rb-gemietet-main") && document.querySelector("#rb-gemietet-main").checked),
+      plate: (document.querySelector("#rb-kennz-main") && document.querySelector("#rb-kennz-main").value) || ""
+    };
+
+    // Fahrzeugwechsel
+    const changes = [];
+    const blocks = $$("#rb-vlist .rb-card");
+    blocks.forEach(blk => {
+      const oRowC = blk.querySelector("[id^='rb-o-']");
+      const dRowC = blk.querySelector("[id^='rb-d-']");
+      const roleEl = blk.querySelector("input[type='radio'][name^='rb-r-']:checked");
+      const gemCheck = blk.querySelector("input[id^='rb-gemietet-']");
+      const kennz = blk.querySelector("input[id^='rb-kennz-']");
+
+      changes.push({
+        orange: oRowC && oRowC.dataset ? (oRowC.dataset.sel || null) : null,
+        dienst: dRowC && dRowC.dataset ? (dRowC.dataset.sel || null) : null,
+        role: roleEl ? roleEl.value : null,
+        rented: !!(gemCheck && gemCheck.checked),
+        plate: kennz ? (kennz.value || "") : ""
+      });
+    });
+
+    return { main, changes };
+  }
+
+  function exportReportJson(){
+    const data = {
+      version: 1,
+      meisterei: S.meisterei || null,
+      taetigkeit: S.taetigkeit || null,
+      bezirk: S.bezirk || null,
+      leitung: $("#rb-leitung")?.value || "",
+      datum: $("#rb-datum")?.value || S.datum || "",
+      temperatur: $("#rb-temp")?.value || S.temperatur || "",
+      arp: Array.isArray(S.arp) ? S.arp : [],
+      tasks: collectTasksForJson(),
+      vehicles: collectVehiclesForJson(),
+    };
+
+    try {
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Tagesbericht.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch(e){
+      console.error("Export fehlgeschlagen:", e);
+      alert("Export fehlgeschlagen. Details in der Konsole.");
+    }
+  }
+
+  function applyReportJson(data){
+    if (!data || typeof data !== "object") return;
+
+    function restoreVehiclesFromJson(vdata){
+      if (!vdata || typeof vdata !== "object") return;
+
+      // Hauptfahrzeug
+      const main = vdata.main || {};
+      const oRow = $("#rb-orange");
+      const dRow = $("#rb-dienst");
+
+      function selectBtn(container, text){
+        if (!container || !text) return;
+        const btn = Array.from(container.querySelectorAll(".rb-btn")).find(b => b.textContent.trim() === text);
+        if (btn) activate(container, btn);
+      }
+
+      if (main.orange || main.dienst){
+        if (main.orange){
+          if (oRow){ oRow.dataset.sel = main.orange; selectBtn(oRow, main.orange); }
+          if (dRow){ delete dRow.dataset.sel; clear(dRow); }
+          const oc = $("#rb-orange-custom");
+          if (oc && /^Orange-\d+/.test(main.orange)){
+            oc.value = main.orange.split("-")[1] || "";
+          }
+        } else if (main.dienst){
+          if (dRow){ dRow.dataset.sel = main.dienst; selectBtn(dRow, main.dienst); }
+          if (oRow){ delete oRow.dataset.sel; clear(oRow); }
+          const dc = $("#rb-dienst-custom");
+          if (dc && /^Dienst-\d+/.test(main.dienst)){
+            dc.value = main.dienst.split("-")[1] || "";
+          }
+        }
+      }
+
+      // Rolle Hauptfahrzeug
+      if (main.role){
+        const roleEl = Array.from(document.querySelectorAll('input[name="rb-rolle"]')).find(r => r.value === main.role);
+        if (roleEl){
+          roleEl.checked = true;
+        }
+      }
+
+      // Gemietet + Kennzeichen Hauptfahrzeug
+      const gemMain = document.querySelector("#rb-gemietet-main");
+      const kennzMain = document.querySelector("#rb-kennz-main");
+      if (gemMain){
+        gemMain.checked = !!main.rented;
+        const wrap = document.querySelector("#rb-gemieteteingabe-main");
+        if (wrap){
+          wrap.classList.toggle("rb-hide", !gemMain.checked);
+        }
+      }
+      if (kennzMain && typeof main.plate === "string"){
+        kennzMain.value = main.plate;
+      }
+
+      // Wechsel-Fahrzeuge
+      const vlist = $("#rb-vlist");
+      if (!vlist) return;
+      vlist.innerHTML = "";
+      const changes = Array.isArray(vdata.changes) ? vdata.changes : [];
+      changes.forEach(ch => {
+        addVehicleBlock();
+        const blk = $$("#rb-vlist .rb-card").slice(-1)[0];
+        if (!blk) return;
+
+        const oRowC = blk.querySelector("[id^='rb-o-']");
+        const dRowC = blk.querySelector("[id^='rb-d-']");
+
+        if (ch.orange){
+          if (oRowC){ oRowC.dataset.sel = ch.orange; selectBtn(oRowC, ch.orange); }
+        }
+        if (ch.dienst){
+          if (dRowC){ dRowC.dataset.sel = ch.dienst; selectBtn(dRowC, ch.dienst); }
+        }
+
+        const roleEl = ch.role ? blk.querySelector(`input[type="radio"][value="${ch.role}"]`) : null;
+        if (roleEl){
+          roleEl.checked = true;
+        }
+
+        const gemCheck = blk.querySelector("input[id^='rb-gemietet-']");
+        const kennz = blk.querySelector("input[id^='rb-kennz-']");
+        if (gemCheck){
+          gemCheck.checked = !!ch.rented;
+          const wrap = blk.querySelector("div[id^='rb-gemieteteingabe-']");
+          if (wrap){
+            wrap.classList.toggle("rb-hide", !gemCheck.checked);
+          }
+        }
+        if (kennz && typeof ch.plate === "string"){
+          kennz.value = ch.plate;
+        }
+      });
+    }
+
+    const meistereiVal = data.meisterei || null;
+    const taetigkeitVal = data.taetigkeit || null;
+    const bezirkVal = data.bezirk || null;
+
+    S.meisterei = meistereiVal;
+    S.taetigkeit = taetigkeitVal;
+    S.bezirk = bezirkVal;
+    S.leitung = data.leitung || "";
+    S.datum = data.datum || todayPretty();
+    S.temperatur = (typeof data.temperatur !== "undefined" && data.temperatur !== null && data.temperatur !== "") 
+      ? String(data.temperatur) 
+      : (S.temperatur || "");
+    S.arp = Array.isArray(data.arp) ? data.arp : [];
+
+    // UI komplett neu rendern
+    render();
+
+    // Kopf-Felder setzen
+    if ($("#rb-leitung")) $("#rb-leitung").value = S.leitung || "";
+    if ($("#rb-datum")) $("#rb-datum").value = S.datum || "";
+    if ($("#rb-temp")) $("#rb-temp").value = S.temperatur || "";
+
+    // Buttons anhand der gespeicherten Werte "anklicken", damit Logik (sichtbare Bereiche usw.) stimmt
+    if (meistereiVal){
+      const bM = Array.from(document.querySelectorAll("#rb-sm .rb-btn")).find(b => b.textContent === meistereiVal);
+      if (bM) bM.click();
+    }
+    if (taetigkeitVal){
+      const bT = Array.from(document.querySelectorAll("#rb-t .rb-btn")).find(b => b.textContent === taetigkeitVal);
+      if (bT) bT.click();
+    }
+    if (bezirkVal){
+      const bB = Array.from(document.querySelectorAll("#rb-b .rb-btn")).find(b => b.textContent === bezirkVal);
+      if (bB) bB.click();
+    }
+
+    // ARP-Auswahl wird innerhalb von renderArpSelectors() aus S.arp nachgezogen
+
+    // Aufgabenblöcke neu aufbauen
+    const isHof = (S.taetigkeit === "Hof");
+    const list = $("#rb-tasklist");
+    if (!list) return;
+    list.innerHTML = "";
+    if (Array.isArray(data.tasks)){
+      data.tasks.forEach(t => {
+        addTaskBlock(null, isHof);
+        const blk = $$("#rb-tasklist .rb-task").slice(-1)[0];
+        if (!blk) return;
+        const set = (sel, val)=>{ const el = sel ? blk.querySelector(sel) : null; if (el) el.value = val || ""; };
+
+        set(".t-title", t.title);
+        if (!isHof){
+          set(".t-street", t.street);
+          set(".t-section", t.section);
+          set(".t-station", t.station);
+          set(".t-rsa", t.rsa);
+        }
+        set(".t-info", t.info);
+      });
+    }
+
+    // Fahrzeuge wiederherstellen
+    if (data.vehicles && typeof data.vehicles === "object"){
+      restoreVehiclesFromJson(data.vehicles);
+    }
+  }
+  
+
+  function importReportJson(){
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = (ev)=>{
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e =>{
+        try {
+          const data = JSON.parse(e.target.result);
+          applyReportJson(data);
+        } catch(err){
+          console.error("Import fehlgeschlagen:", err);
+          alert("Import fehlgeschlagen. Details in der Konsole.");
+        }
+      };
+      reader.readAsText(file, "utf-8");
+    };
+    input.click();
+  }
+
   /* ---------- 6) Aufgaben ---------- */
   function addTaskBlock(streetText, hofOnly){
     const blk=h("div",{class:"rb-card fade-in rb-task"});
@@ -638,12 +1028,20 @@ function addVehicleBlock() {
       addTaskBlock(null, isHof);
     };
 
+    // JSON Export / Import
+    const btnExport = $("#rb-json-export");
+    if (btnExport) btnExport.onclick = exportReportJson;
+    const btnImport = $("#rb-json-import");
+    if (btnImport) btnImport.onclick = importReportJson;
+
     // Doppelte Listener vermeiden, stabiler Click
     $("#rb-pdf").replaceWith($("#rb-pdf").cloneNode(true));
     document.querySelector("#rb-pdf").onclick = makePdf;
+
   }
 
   /* ---------- kleine UI-Helfer ---------- */
+
   function activate(container, btn){ $$(".rb-btn",container).forEach(x=>x.classList.remove("active")); btn.classList.add("active"); }
   function clear(container){ $$(".rb-btn",container).forEach(x=>x.classList.remove("active")); }
   function toggle(sel, on){ const n=$(sel); if(n) n.classList.toggle("rb-hide", !on); }
@@ -703,6 +1101,8 @@ const wechsel = $$("#rb-vlist .rb-card").map(blk => {
       info: $(".t-info", t)?.value || "",
     }));
 
+    const arpText = (S.arp && S.arp.length) ? S.arp.join(", ") : "";
+
     const compactCSS = `
       @page { size: A4 portrait; margin: 6mm 8mm 8mm 8mm; }
       html, body { font-family: Arial, sans-serif; color: #111; margin: 0; padding: 0; width: 100%; height: 100%; background: white; }
@@ -755,7 +1155,7 @@ const wechsel = $$("#rb-vlist .rb-card").map(blk => {
               <div class="m">${month}<span class="y"> ${year}</span></div>
               <div class="d">${day}</div>
             </div>
-            <div class="wd">${wday}</div>
+            <div class="wd">${wday}${arpText ? " · ARP: " + arpText : ""}</div>
           </div>
           <div class="taskhead">
             <div class="taetigkeit">${taetigkeit}</div>
